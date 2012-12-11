@@ -32,7 +32,7 @@ class ServerThread(Thread):
 
 class ThreadedServer(HTTPServer):
     def __init__(self, server_address, RequestHandlerClass):
-        super(ThreadedServer, self).__init__(server_address, RequestHandlerClass)
+        HTTPServer.__init__(self, server_address, RequestHandlerClass)
         self.thread = None
         
     def start(self):
