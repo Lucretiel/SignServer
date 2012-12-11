@@ -8,7 +8,12 @@ import json
 
 from sign_direct_forwarder import SignDirectForwarder
 import errors
-from .. import convertToJson
+
+def convertToJson(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        return json.dumps(result, separators=(',',':'))
+    return wrapper
 
 class AllocatorForwarder(SignDirectForwarder):
     def __init__(self, sign):

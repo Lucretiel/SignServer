@@ -14,11 +14,3 @@ import sign_direct
 import json
 
 layers = {'sign-direct': sign_direct}
-
-def convertToJson(func):
-    '''Function decorator that converts the result of a function to its json
-    equivelent'''
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        return json.dumps(result, separators=(',',':'))
-    return wrapper
