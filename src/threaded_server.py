@@ -41,6 +41,7 @@ class ThreadedServer(HTTPServer):
         
         self.thread = ServerThread(self)
         self.thread.start()
+        print 'Server started in thread %s' % self.thread.ident
         
     def stop(self):
         if self.thread is None:
@@ -50,6 +51,8 @@ class ThreadedServer(HTTPServer):
         self.thread.join()
         del self.thread
         self.thread = None
+        
+        print 'Server thread stopped'
     
     #Methods for with construct
     def __enter__(self):
