@@ -13,10 +13,11 @@ import forwarders
 import errors
  
 class Handler(BaseHTTPRequestHandler):
+    sign = alphasign.Serial()
+    sign.connect()
+    
     def __init__(self, *args, **kwargs):
         BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
-        self.sign = alphasign.Serial()
-        self.sign.connect()
         
     def discover_forwarder(self):
         '''
