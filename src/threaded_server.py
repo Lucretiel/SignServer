@@ -10,6 +10,9 @@ stop the server.
 from BaseHTTPServer import HTTPServer
 from threading import Thread
 
+class ThreadedServerException(Exception):
+    pass
+
 class ServerThread(Thread):
     '''Class to run an HTTPServer in its own thread
     
@@ -34,17 +37,24 @@ class ThreadedServer(HTTPServer):
         
     def start(self):
         if self.thread is not None:
-            return #TODO: raise an exception?
+            raise ThreadedServerException('Thread already started')
         
         self.thread = ServerThread(self)
         self.thread.start()
         
     def stop(self):
         if self.thread is None:
-            return #TODO: raise an exception?
+            raise ThreadedServerException('No thread exists')
         
         self.shutdown()
         self.thread.join()
         del self.thread
         self.thread = None
-        
+    
+    #Methods for with construct
+    def __enter__(self):
+        self.start()
+        return self
+    
+    def __exit__(self, Type, value, traceback):
+        self.stop()
