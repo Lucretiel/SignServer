@@ -6,7 +6,8 @@ Created on Dec 12, 2012
 import sys
 import re
 
-from bottle import HTTPError, request
+from bottle import HTTPError
+import bottle
 import alphasign
 from app import sign, app
 import constants
@@ -83,9 +84,9 @@ def clear_allocation_table():
 @app.put('/sign-direct/allocation-table')
 def set_allocation_table():
     try:
-        if request.json is None:
+        if bottle.request.json is None:
             raise HTTPError(400, 'Data must be json')
-        table = request.json['table']
+        table = bottle.request.json['table']
         allocation_objects = []
         used_labels = []
         for entry in table:
@@ -122,7 +123,7 @@ def set_allocation_table():
 @app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]')
 def write_file(label):
     try:
-        if request.json is None:
+        if bottle.request.json is None:
             raise HTTPError(400, 'Data must be json')
         
         memory_table = sign.read_raw_memory_table()
@@ -130,7 +131,7 @@ def write_file(label):
         memory_table = sign.read_memory_table(memory_table)
         
         file_type = memory_entry['type']
-        request = request.json
+        request = bottle.request.json
         
         if request.get('type', file_type) != file_type:
             raise HTTPError(400, 'Mismatched type. Type in memory is %s.' % file_type)
