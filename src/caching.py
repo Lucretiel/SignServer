@@ -4,7 +4,7 @@ Created on Dec 12, 2012
 @author: nathan
 '''
 
-import time
+from time import time
 
 class cached(object):
     def __init__(self, timeout = 10):

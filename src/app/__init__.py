@@ -6,7 +6,6 @@ Created on Dec 12, 2012
 This file manages miscellaneous stuff for the Bottle object 
 '''
 
-from time import time
 import bottle
 import alphasign
 
