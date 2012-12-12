@@ -65,7 +65,23 @@ def parse_labels(text, memory):
         
     return parse_generic(text, replacer)
 
-def inject_json():
+def inject_json(func):
+    '''Function decorator. Converts takes a function that would expect
+    bottle.request to be json, and passes the json dict as the first argument.
+    Automatically converts ValueErrors and KeyErrors into HTTPErrors.
+    '''
+    def wrapper(*args, **kwargs):
+        try:
+            request = bottle.request.json
+            if request is None:
+                raise HTTPError(400, 'Data must be json')
+            return func(request, *args, **kwargs)
+        except ValueError as e:
+            raise HTTPError(400, 'Error parsing json\n%s' % e.message), None, sys.exc_traceback
+        except KeyError as e:
+            raise HTTPError(400, 'Missing field in json: %s' % e.message), None, sys.exc_traceback
+    return wrapper
+    
 
 ################################################################################
 # SERVER METHODS                                                               #
@@ -84,96 +100,86 @@ def clear_allocation_table():
     return {'result': 'Sign memory cleared'}
     
 @app.put('/sign-direct/allocation-table')
-def set_allocation_table():
-    try:
-        if bottle.request.json is None:
-            raise HTTPError(400, 'Data must be json')
-        table = bottle.request.json['table']
-        allocation_objects = []
-        used_labels = []
-        for entry in table:
-            try:
-                label = entry['label']
-                object_type = entry['type']
-                
-                validate_label(label)
-                
-                if label in used_labels:
-                    raise HTTPError(400, 'Label %s has already appeared in entry')
-                
-                #TODO: check sizes
-                if object_type == 'TEXT':
-                    obj = alphasign.Text(label=label, size=entry['size'])
-                elif object_type == 'STRING':
-                    obj = alphasign.String(label=label, size=entry['size'])
-                elif object_type == 'DOTS':
-                    obj = alphasign.Dots(entry['rows'], entry['columns'], label=label)
-                allocation_objects.append(obj)
-                used_labels.append(label)
-            except KeyError as e:
-                raise HTTPError(400, 'Missing Field %s in entry\nEntry:\n%s' % (e.message, entry)), None, sys.exc_traceback
-            except HTTPError as e:
-                e.output += '\nEntry:\n%s' % entry
-                raise
-    except KeyError as e:
-        raise HTTPError(400, 'Missing Field %s' % e.message), None, sys.exc_traceback
+@inject_json
+def set_allocation_table(request):
+    table = request['table']
+    allocation_objects = []
+    used_labels = []
+    for entry in table:
+        try:
+            label = entry['label']
+            object_type = entry['type']
+            
+            validate_label(label)
+            
+            if label in used_labels:
+                raise HTTPError(400, 'Label %s has already appeared in entry')
+            
+            #TODO: check sizes
+            if object_type == 'TEXT':
+                obj = alphasign.Text(label=label, size=entry['size'])
+            elif object_type == 'STRING':
+                obj = alphasign.String(label=label, size=entry['size'])
+            elif object_type == 'DOTS':
+                obj = alphasign.Dots(entry['rows'], entry['columns'], label=label)
+            allocation_objects.append(obj)
+            used_labels.append(label)
+        except KeyError as e:
+            raise HTTPError(400, 'Missing Field %s in entry\nEntry:\n%s' % (e.message, entry)), None, sys.exc_traceback
+        except HTTPError as e:
+            e.output += '\nEntry:\n%s' % entry
+            raise
     
     sign.allocate(allocation_objects)
     
     return {'result': 'Memory allocated successfully'}
 
 @app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]>')
-def write_file(label):
-    try:
-        if bottle.request.json is None:
-            raise HTTPError(400, 'Data must be json')
+@inject_json
+def write_file(request, label):        
+    memory_table = read_raw_memory_table()
+    memory_entry = sign.read_memory_table(memory_table, label)
+    memory_table = sign.read_memory_table(memory_table)
+    
+    file_type = memory_entry['type']
+    
+    if request.get('type', file_type) != file_type:
+        raise HTTPError(400, 'Mismatched type. Type in memory is %s.' % file_type)
+    
+    if file_type == 'TEXT' or file_type == 'STRING':
+        data = request['text']
         
-        memory_table = read_raw_memory_table()
-        memory_entry = sign.read_memory_table(memory_table, label)
-        memory_table = sign.read_memory_table(memory_table)
+        #Prepend color. Ignore invalid colors.
+        data = constants.get_color(request.get('color', 'NO_COLOR')) + data
         
-        file_type = memory_entry['type']
-        request = bottle.request.json
+        #parse colors
+        data = parse_colors(data)
         
-        if request.get('type', file_type) != file_type:
-            raise HTTPError(400, 'Mismatched type. Type in memory is %s.' % file_type)
+        #text-specific processing
+        if file_type == 'TEXT':
+            data = parse_labels(data, memory_table)
+            
+        #check size
+        if len(data) > memory_entry['size']:
+            raise HTTPError(400, 'Not enough memory allocated. Requires %s, only %s allocated.' % (len(data), memory_entry['size']))
         
-        if file_type == 'TEXT' or file_type == 'STRING':
-            data = request['text']
+        if file_type == 'TEXT':
+            mode = constants.get_mode(request.get('mode', 'HOLD'))
+            obj = alphasign.Text(data, label=label, mode=mode)
+        elif file_type == 'STRING':
+            obj = alphasign.String(data, label=label)
             
-            #Prepend color. Ignore invalid colors.
-            data = constants.get_color(request.get('color', 'NO_COLOR')) + data
+    elif file_type == 'DOTS':
+        data = request['data']
+        rows = memory_entry['rows']
+        columns = memory_entry['columns']
+        
+        obj = alphasign.Dots(rows, columns, label=label)
+        
+        for i, row in enumerate(data[:rows]):
+            obj.set_row(i, row)
             
-            #parse colors
-            data = parse_colors(data)
-            
-            #text-specific processing
-            if file_type == 'TEXT':
-                data = parse_labels(data, memory_table)
-                
-            #check size
-            if len(data) > memory_entry['size']:
-                raise HTTPError(400, 'Not enough memory allocated. Requires %s, only %s allocated.' % (len(data), memory_entry['size']))
-            
-            if file_type == 'TEXT':
-                mode = constants.get_mode(request.get('mode', 'HOLD'))
-                obj = alphasign.Text(data, label=label, mode=mode)
-            elif file_type == 'STRING':
-                obj = alphasign.String(data, label=label)
-                
-        elif file_type == 'DOTS':
-            data = request['data']
-            rows = memory_entry['rows']
-            columns = memory_entry['columns']
-            
-            obj = alphasign.Dots(rows, columns, label=label)
-            
-            for i, row in enumerate(data[:rows]):
-                obj.set_row(i, row)
-                
-        sign.write(obj)
-    except KeyError as e:
-        raise HTTPError(400, 'Missing Field %s' % e.message), None, sys.exc_traceback 
+    sign.write(obj)
         
         
         
