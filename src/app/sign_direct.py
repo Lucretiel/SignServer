@@ -3,16 +3,18 @@ Created on Dec 12, 2012
 
 @author: nathan
 '''
+import sys
+import re
 
 from bottle import HTTPError, request
 import alphasign
 from app import sign, app
-import labels
+import constants
 
 def validate_label(self, label, type_name = None):
-    if label not in labels.valid_labels:
+    if label not in constants.valid_labels:
         raise HTTPError(400, 'label %s is invalid' % label)
-    if label in labels.counter_labels:
+    if label in constants.counter_labels:
         raise HTTPError(400, 'label cannot be a counter (1-5)')
     if type_name is not None:
         memory_entry = self.sign.read_memory_table(label=label)
@@ -20,6 +22,51 @@ def validate_label(self, label, type_name = None):
             raise HTTPError(400, 'label %s not in memory table' % label)
         if memory_entry['type'] == type_name:
             raise HTTPError(400, 'label %s is of type %s, not %s' % (label, type_name, memory_entry['type']))
+
+def parse_generic(text, replacer):
+    '''This function scans the text for all flags of the form {stuff}, and
+    replaces them according to the replacer function. The replacer function
+    takes, as an argument, the content inside the flag. If it returns None,
+    the flag is untouched.
+    '''
+    
+    match_pattern = '\{([^}]*)\}'
+    def _replacer(match):
+        replacement = replacer(match.group(1))
+        return replacement if replacement is not None else match.group()
+    
+    return re.sub(match_pattern, _replacer, text)
+
+def parse_colors(self, text):
+    '''This function scans the text for color flags (ie, {RED}) and replaces
+    them with their alphasign call-character equivelent
+    '''
+    def replacer(color):
+        color = constants.get_color(color)
+        if color != '':
+            return color
+        
+    return self._parse_generic(text, replacer)
+
+def parse_labels(self, text, memory):
+    '''This function scans the text for label flags (ie, {C}) and replaces
+    them with their alphasign call-character equivelents. It depends on the
+    current memory table of the sign.
+    '''
+    
+    types = {'STRING': alphasign.String, 'DOTS': alphasign.Dots}
+    memory_types = {entry['label']: types[entry['type']] 
+                    for entry in memory if entry['type'] != 'TEXT'}
+    
+    def replacer(label):
+        if label in memory_types:
+            return memory_types[label](label=label).call()
+        
+    return self._parse_generic(text, replacer)
+
+################################################################################
+# SERVER METHODS                                                               #
+################################################################################
 
 @app.get('/sign-direct/allocation-table')
 def get_allocation_table():
@@ -61,13 +108,69 @@ def set_allocation_table():
                 allocation_objects.append(obj)
                 used_labels.append(label)
             except KeyError as e:
-                raise HTTPError(400, 'Missing Field %s in entry\nEntry:\n%s' % (e.message, entry))
+                raise HTTPError(400, 'Missing Field %s in entry\nEntry:\n%s' % (e.message, entry)), None, sys.exc_traceback
             except HTTPError as e:
                 e.output += '\nEntry:\n%s' % entry
                 raise
     except KeyError as e:
-        raise HTTPError(400, 'Missing Field %s' % e.message)
+        raise HTTPError(400, 'Missing Field %s' % e.message), None, sys.exc_traceback
     
     sign.allocate(allocation_objects)
     
     return {'result': 'Memory allocated successfully'}
+
+@app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]')
+def write_file(label):
+    try:
+        if request.json is None:
+            raise HTTPError(400, 'Data must be json')
+        
+        memory_table = sign.read_raw_memory_table()
+        memory_entry = sign.read_memory_table(memory_table, label)
+        memory_table = sign.read_memory_table(memory_table)
+        
+        file_type = memory_entry['type']
+        request = request.json
+        
+        if request.get('type', file_type) != file_type:
+            raise HTTPError(400, 'Mismatched type. Type in memory is %s.' % file_type)
+        
+        if file_type == 'TEXT' or file_type == 'STRING':
+            data = request['text']
+            
+            #Prepend color. Ignore invalid colors.
+            data = constants.get_color(request.get('color', 'NO_COLOR')) + data
+            
+            #parse colors
+            data = parse_colors(data)
+            
+            #text-specific processing
+            if file_type == 'TEXT':
+                data = parse_labels(data, memory_table)
+                
+            #check size
+            if len(data) > memory_entry['size']:
+                raise HTTPError(400, 'Not enough memory allocated. Requires %s, only %s allocated.' % (len(data), memory_entry['size']))
+            
+            if file_type == 'TEXT':
+                mode = constants.get_mode(request.get('mode', 'HOLD'))
+                obj = alphasign.Text(data, label=label, mode=mode)
+            elif file_type == 'STRING':
+                obj = alphasign.String(data, label=label)
+                
+        elif file_type == 'DOTS':
+            data = request['data']
+            rows = memory_entry['rows']
+            columns = memory_entry['columns']
+            
+            obj = alphasign.Dots(rows, columns, label=label)
+            
+            for i, row in enumerate(data[:rows]):
+                obj.set_row(i, row)
+                
+        sign.write(obj)
+    except KeyError as e:
+        raise HTTPError(400, 'Missing Field %s' % e.message), None, sys.exc_traceback 
+        
+        
+        
