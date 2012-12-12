@@ -21,19 +21,19 @@ def validate_label(self, label, type_name = None):
         if memory_entry['type'] == type_name:
             raise HTTPError(400, 'label %s is of type %s, not %s' % (label, type_name, memory_entry['type']))
 
-@app.get('sign-direct/allocation-table')
+@app.get('/sign-direct/allocation-table')
 def get_allocation_table():
     table = sign.read_memory_table()
     if table is False:
         raise HTTPError(500, 'Failed to read from memory table')
     return {'table': table}
 
-@app.delete('sign-direct/allocation-table')
+@app.delete('/sign-direct/allocation-table')
 def clear_allocation_table():
     sign.clear_memory()
     return {'result': 'Sign memory cleared'}
     
-@app.put('sign-direct/allocation-table')
+@app.put('/sign-direct/allocation-table')
 def set_allocation_table():
     try:
         if request.json is None:
