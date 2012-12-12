@@ -120,7 +120,7 @@ def set_allocation_table():
     
     return {'result': 'Memory allocated successfully'}
 
-@app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]')
+@app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]>')
 def write_file(label):
     try:
         if bottle.request.json is None:
