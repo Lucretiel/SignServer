@@ -12,7 +12,7 @@ import alphasign
 from app import sign, app, read_raw_memory_table
 import constants
 
-def validate_label(self, label, type_name = None):
+def validate_label(label, type_name = None):
     if label not in constants.valid_labels:
         raise HTTPError(400, 'label %s is invalid' % label)
     if label in constants.counter_labels:
@@ -64,6 +64,8 @@ def parse_labels(text, memory):
             return memory_types[label](label=label).call()
         
     return parse_generic(text, replacer)
+
+def inject_json():
 
 ################################################################################
 # SERVER METHODS                                                               #
