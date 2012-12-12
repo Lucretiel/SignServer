@@ -9,7 +9,7 @@ import app
 
 
 def main():
-    run(app)
+    run(app.app)
 
 if __name__ == '__main__':
     main()
