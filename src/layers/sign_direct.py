@@ -8,15 +8,6 @@ import re
 
 import alphasign
 import labels
-
-class SignDirectException(Exception):
-    def __init__(self, *args):
-        super(SignDirectException, self).__init__(*args)
-
-class LabelInvalidException(SignDirectException):
-    def __init__(self, label, message, *args):
-        self.label = label
-        super(LabelInvalidException, self).__init__(message, label, *args)
         
 ################################################################################
         
@@ -27,19 +18,57 @@ class SignDirect(object):
     def __init__(self, sign):
         '''The handler holds a reference to the sign
         '''
-        self.sign = sign
-
-    def _validate_label(self, label, type_name):
-        if label not in labels.valid_labels:
-            raise LabelInvalidException(label, 'Not a valid label')
-        if label in labels.counter_labels:
-            raise LabelInvalidException(label, 'Must not use counter label')
-        memory_entry = self.sign.read_memory_table(label=label)
-        if memory_entry is None:
-            raise LabelInvalidException(label, 'Label not in memory table')
-        if memory_entry['type'] == type_name:
-            raise LabelInvalidException(label, 'label is wrong type in memory table')
+        self.sign = None
+        self.set_sign(sign)
         
+    def set_sign(self, sign):
+        if self.sign is not None:
+            self.sign.disconnect()
+        self.sign = alphasign.Serial(sign)
+        self.sign.connect()
+        
+    @staticmethod
+    def _parse_generic(text, replacer):
+        '''This function scans the text for all flags of the form {stuff}, and
+        replaces them according to the replacer function. The replacer function
+        takes, as an argument, the content inside the flag. If it returns None,
+        the flag is untouched.
+        '''
+        
+        match_pattern = '\{([^}]*)\}'
+        def _replacer(match):
+            replacement = replacer(match.group(1))
+            return replacement if replacement is not None else match.group()
+        
+        return re.sub(match_pattern, _replacer, text)
+    
+    def _parse_colors(self, text):
+        '''This function scans the text for color flags (ie, {RED}) and replaces
+        them with their alphasign call-character equivelent
+        '''
+        def replacer(color):
+            if color in alphasign.colors.colors:
+                return alphasign.colors.colors[color]
+            
+        return self._parse_generic(text, replacer)
+
+    def _parse_labels(self, text):
+        '''This function scans the text for label flags (ie, {C}) and replaces
+        them with their alphasign call-character equivelents. It depends on the
+        current memory table of the sign.
+        '''
+        
+        types = {'STRING': alphasign.String, 'DOTS': alphasign.Dots}
+        memory_types = {entry['label']: types[entry['type']] 
+                        for entry in self.sign.read_memory_table()
+                        if entry['type'] != 'TEXT'}
+        
+        def replacer(label):
+            if label in memory_types:
+                return memory_types[label](label=label).call()
+            
+        return self._parse_generic(text, replacer)
+    
     def clear_table(self):
         self.sign.clear_memory()
         
@@ -85,48 +114,6 @@ class SignDirect(object):
         if label not in labels.valid_labels:
             raise LabelInvalidException(label, 'label is not valid')
         self.sign.set_run_sequence([alphasign.Text(label=label)])
-        
-    @staticmethod
-    def _parse_generic(text, replacer):
-        '''This function scans the text for all flags of the form {stuff}, and
-        replaces them according to the replacer function. The replacer function
-        takes, as an argument, the content inside the flag. If it returns None,
-        the flag is untouched.
-        '''
-        
-        match_pattern = '\{([^}]*)\}'
-        def _replacer(match):
-            replacement = replacer(match.group(1))
-            return replacement if replacement is not None else match.group()
-        
-        return re.sub(match_pattern, _replacer, text)
-    
-    def _parse_colors(self, text):
-        '''This function scans the text for color flags (ie, {RED}) and replaces
-        them with their alphasign call-character equivelent
-        '''
-        def replacer(color):
-            if color in alphasign.colors.colors:
-                return alphasign.colors.colors[color]
-            
-        return self._parse_generic(text, replacer)
-
-    def _parse_labels(self, text):
-        '''This function scans the text for label flags (ie, {C}) and replaces
-        them with their alphasign call-character equivelents. It depends on the
-        current memory table of the sign.
-        '''
-        
-        types = {'STRING': alphasign.String, 'DOTS': alphasign.Dots}
-        memory_types = {entry['label']: types[entry['type']] 
-                        for entry in self.sign.read_memory_table()
-                        if entry['type'] != 'TEXT'}
-        
-        def replacer(label):
-            if label in memory_types:
-                return memory_types[label](label=label).call()
-            
-        return self._parse_generic(text, replacer)
         
     #TODO: refactor identical code in these two functions
     #TODO: additional parameter validation. size, type, etc.
