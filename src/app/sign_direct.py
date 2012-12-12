@@ -38,7 +38,7 @@ def parse_generic(text, replacer):
     
     return re.sub(match_pattern, _replacer, text)
 
-def parse_colors(self, text):
+def parse_colors(text):
     '''This function scans the text for color flags (ie, {RED}) and replaces
     them with their alphasign call-character equivelent
     '''
@@ -47,9 +47,9 @@ def parse_colors(self, text):
         if color != '':
             return color
         
-    return self._parse_generic(text, replacer)
+    return parse_generic(text, replacer)
 
-def parse_labels(self, text, memory):
+def parse_labels(text, memory):
     '''This function scans the text for label flags (ie, {C}) and replaces
     them with their alphasign call-character equivelents. It depends on the
     current memory table of the sign.
@@ -63,7 +63,7 @@ def parse_labels(self, text, memory):
         if label in memory_types:
             return memory_types[label](label=label).call()
         
-    return self._parse_generic(text, replacer)
+    return parse_generic(text, replacer)
 
 ################################################################################
 # SERVER METHODS                                                               #
