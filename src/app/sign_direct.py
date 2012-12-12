@@ -9,7 +9,7 @@ import re
 from bottle import HTTPError
 import bottle
 import alphasign
-from app import sign, app
+from app import sign, app, read_raw_memory_table
 import constants
 
 def validate_label(self, label, type_name = None):
@@ -126,7 +126,7 @@ def write_file(label):
         if bottle.request.json is None:
             raise HTTPError(400, 'Data must be json')
         
-        memory_table = sign.read_raw_memory_table()
+        memory_table = read_raw_memory_table()
         memory_entry = sign.read_memory_table(memory_table, label)
         memory_table = sign.read_memory_table(memory_table)
         
