@@ -202,6 +202,6 @@ def write_file(request, label):
             obj.set_row(i, row)
             
     sign.write(obj)
-        
+    return {'result': 'memory written successfully'}
         
         
