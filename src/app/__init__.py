@@ -15,3 +15,7 @@ app = bottle.Bottle()
 
 app.mount('/sign-direct', sign_direct.app)
 app.mount('/dead-simple', dead_simple.app)
+
+@app.route('/favicon.ico')
+def get_icon():
+    return bottle.static_file('favicon.ico', '.')
