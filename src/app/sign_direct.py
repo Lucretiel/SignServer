@@ -155,7 +155,7 @@ def set_allocation_table(request):
     
     return {'result': 'Memory allocated successfully'}
 
-@app.put('/sign-direct/allocation-table/<label:re:[1-9A-Za-z]>')
+@app.put('/allocation-table/<label:re:[1-9A-Za-z]>')
 @inject_json
 def write_file(request, label):        
     memory_table = read_raw_memory_table()
