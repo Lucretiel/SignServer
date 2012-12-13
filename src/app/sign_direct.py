@@ -82,7 +82,7 @@ def write_file(request, label):
         data = request['text']
         
         #Prepend color. Ignore invalid colors.
-        data = constants.get_color(request.get('color', 'NO_COLOR').upper()) + data
+        data = constants.get_color(request.get('color', 'NO_COLOR')) + data
         
         #parse colors
         data = general.parse_colors(data)
