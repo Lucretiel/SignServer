@@ -34,7 +34,7 @@ def reset():
     text_length = params.get('textsize', 128, type=int)
     string_length = params.get('stringsize', 128, type=int)
     
-    text = alphasign.Text('%sREADY FOR DEAD-SIMPLE. TRY HITTING /dead-simple/send?text=<text>' % alphasign.colors.RED, label='A', size=text_length, mode=alphasign.modes.ROTATE)
+    text = alphasign.Text('%sREADY FOR DEAD-SIMPLE. TRY HITTING %s/dead-simple/send?text=<text>' % (alphasign.colors.RED, alphasign.colors.YELLOW), label='A', size=text_length, mode=alphasign.modes.COMPRESSED_ROTATE)
     strings = (alphasign.String(label=label, size=string_length) for label in constants.dead_simple_string_labels)
     
     sign.allocate(chain([text], strings))
