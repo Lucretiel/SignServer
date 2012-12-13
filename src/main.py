@@ -4,12 +4,20 @@ Created on Dec 12, 2012
 @author: nathan
 '''
 
+import argparse
+
 from bottle import run
 import app
 
 
 def main():
-    run(app.app, host='0.0.0.0', port=39999)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', default='0.0.0.0')
+    parser.add_argument('--port', default='39999', type=int)
+    parser.add_argument('--live', action='store_true', help='Autoupdate the server with code changes')
+    
+    options = parser.parse_args()
+    run(app.app, host=options.host, port=options.port)
 
 if __name__ == '__main__':
     main()

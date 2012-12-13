@@ -21,7 +21,5 @@ class Cached(object):
     def clear_cache(self):
         self.value = None
             
-def cached(timeout = 0):
-    def _cached(func):
-        return Cached(func, timeout)
-    return _cached
+def cached(func):
+    return Cached(func, 0)

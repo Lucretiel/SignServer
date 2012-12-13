@@ -9,8 +9,27 @@ import re
 from bottle import HTTPError
 import bottle
 import alphasign
-from app import sign, app, read_raw_memory_table
 import constants
+from caching import cached
+
+app = bottle.Bottle()
+sign = alphasign.Serial()
+sign.connect()
+sign_memory_timeout = 60 * 10 #How long until the memory cache dies
+sign_retries = 3 #Number of times 
+
+@cached
+def read_raw_memory_table(retries=None):
+    if retries is None:
+        retries = sign_retries
+        
+    for _ in xrange(retries):
+        table = sign.read_raw_memory_table()
+        if table is not False:
+            return table
+    return None
+
+read_raw_memory_table.timeout = sign_memory_timeout
 
 def validate_label(label, type_name = None):
     if label not in constants.valid_labels:
@@ -18,7 +37,7 @@ def validate_label(label, type_name = None):
     if label in constants.counter_labels:
         raise HTTPError(400, 'label cannot be a counter (1-5)')
     if type_name is not None:
-        memory_entry = sign.read_memory_table(read_raw_memory_table, label)
+        memory_entry = sign.find_entry(read_raw_memory_table(), label)
         if memory_entry is None:
             raise HTTPError(400, 'label %s not in memory table' % label)
         if memory_entry['type'] == type_name:
@@ -49,13 +68,14 @@ def parse_colors(text):
         
     return parse_generic(text, replacer)
 
-def parse_labels(text, memory):
+def parse_labels(text):
     '''This function scans the text for label flags (ie, {C}) and replaces
     them with their alphasign call-character equivelents. It depends on the
     current memory table of the sign.
     '''
     
     types = {'STRING': alphasign.String, 'DOTS': alphasign.Dots}
+    memory = sign.parse_raw_memory_table(read_raw_memory_table())
     memory_types = {entry['label']: types[entry['type']] 
                     for entry in memory if entry['type'] != 'TEXT'}
     
@@ -87,19 +107,19 @@ def inject_json(func):
 # SERVER METHODS                                                               #
 ################################################################################
 
-@app.get('/sign-direct/allocation-table')
+@app.get('/allocation-table')
 def get_allocation_table():
     table = sign.read_memory_table()
     if table is False:
         raise HTTPError(500, 'Failed to read from memory table')
     return {'table': table}
 
-@app.delete('/sign-direct/allocation-table')
+@app.delete('/allocation-table')
 def clear_allocation_table():
     sign.clear_memory()
     return {'result': 'Sign memory cleared'}
     
-@app.put('/sign-direct/allocation-table')
+@app.put('/allocation-table')
 @inject_json
 def set_allocation_table(request):
     table = request['table']
@@ -139,8 +159,8 @@ def set_allocation_table(request):
 @inject_json
 def write_file(request, label):        
     memory_table = read_raw_memory_table()
-    memory_entry = sign.read_memory_table(memory_table, label)
-    memory_table = sign.read_memory_table(memory_table)
+    memory_entry = sign.find_entry(memory_table, label)
+    memory_table = sign.parse_raw_memory_table(memory_table)
     
     file_type = memory_entry['type']
     
