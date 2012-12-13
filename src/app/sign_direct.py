@@ -31,13 +31,15 @@ def read_raw_memory_table(retries=None):
 
 read_raw_memory_table.timeout = sign_memory_timeout
 
-def validate_label(label, type_name = None):
+def validate_label(label, type_name=None, raw_table=None):
     if label not in constants.valid_labels:
         raise HTTPError(400, 'label %s is invalid' % label)
     if label in constants.counter_labels:
         raise HTTPError(400, 'label cannot be a counter (1-5)')
     if type_name is not None:
-        memory_entry = sign.find_entry(read_raw_memory_table(), label)
+        if raw_table is None:
+            raw_table = read_raw_memory_table()
+        memory_entry = sign.find_entry(raw_table, label)
         if memory_entry is None:
             raise HTTPError(400, 'label %s not in memory table' % label)
         if memory_entry['type'] == type_name:
@@ -129,7 +131,7 @@ def set_allocation_table(request):
     for entry in table:
         try:
             label = entry['label']
-            object_type = entry['type']
+            object_type = entry['type'].upper()
             
             validate_label(label)
             
@@ -143,6 +145,8 @@ def set_allocation_table(request):
                 obj = alphasign.String(label=label, size=entry['size'])
             elif object_type == 'DOTS':
                 obj = alphasign.Dots(entry['rows'], entry['columns'], label=label)
+            else:
+                raise HTTPError(400, '%s is not a valid type' % object_type)
             allocation_objects.append(obj)
             used_labels.append(label)
         except KeyError as e:
@@ -160,19 +164,20 @@ def set_allocation_table(request):
 @inject_json
 def write_file(request, label):        
     memory_table = read_raw_memory_table()
+    
+    if 'type' in request:
+        validate_label(label, request['type'], memory_table)
+        
     memory_entry = sign.find_entry(memory_table, label)
     memory_table = sign.parse_raw_memory_table(memory_table)
     
     file_type = memory_entry['type']
     
-    if request.get('type', file_type) != file_type:
-        raise HTTPError(400, 'Mismatched type. Type in memory is %s.' % file_type)
-    
     if file_type == 'TEXT' or file_type == 'STRING':
         data = request['text']
         
         #Prepend color. Ignore invalid colors.
-        data = constants.get_color(request.get('color', 'NO_COLOR')) + data
+        data = constants.get_color(request.get('color', 'NO_COLOR').upper()) + data
         
         #parse colors
         data = parse_colors(data)
@@ -203,5 +208,14 @@ def write_file(request, label):
             
     sign.write(obj)
     return {'result': 'memory written successfully'}
+
+@app.put('/show-text')
+@inject_json
+def show_text(data):
+    label = data['label']
+    memory_entry = sign.find_entry(read_raw_memory_table(), label)
+    if memory_entry['type'] != 'TEXT':
+        raise HTTPError(400, 'The data at label %s must be of type TEXT. It is of type %s' % (label, memory_entry['type']))
+    sign.set_run_sequence([alphasign.Text(label=label)])
         
         
