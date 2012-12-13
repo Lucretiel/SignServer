@@ -12,4 +12,4 @@ import sign_direct
 
 app = bottle.Bottle()
 
-app.mount('/sign-direct/', sign_direct.app)
+app.mount('/sign-direct', sign_direct.app)
