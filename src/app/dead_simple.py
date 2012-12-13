@@ -21,8 +21,8 @@ def parse_labels(text):
     '''Custom parse_labels function. Only looks for a-z, and assumes string type
     '''
     def replacer(match):
-        if match.group(1).lower() in constants.dead_simple_string_labels:
-            return alphasign.String(label=match.group(1)).call()
+        if match.lower() in constants.dead_simple_string_labels:
+            return alphasign.String(label=match.lower()).call()
         return None
     
     return general.parse_generic(text, replacer, delims)
