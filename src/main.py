@@ -9,7 +9,7 @@ import app
 
 
 def main():
-    run(app.app)
+    run(app.app, host='0.0.0.0', port=39999)
 
 if __name__ == '__main__':
     main()
