@@ -131,6 +131,7 @@ def set_allocation_table(request):
             raise
     
     sign.allocate(allocation_objects)
+    read_raw_memory_table.clear_cache()
     
     return {'result': 'Memory allocated successfully'}
 
