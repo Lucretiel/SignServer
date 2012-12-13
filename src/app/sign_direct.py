@@ -10,26 +10,10 @@ from bottle import HTTPError
 import bottle
 import alphasign
 import constants
-from caching import cached
+
+from sign import read_raw_memory_table, sign
 
 app = bottle.Bottle()
-sign = alphasign.Serial()
-sign.connect()
-sign_memory_timeout = 60 * 10 #How long until the memory cache dies
-sign_retries = 3 #Number of times 
-
-@cached
-def read_raw_memory_table(retries=None):
-    if retries is None:
-        retries = sign_retries
-        
-    for _ in xrange(retries):
-        table = sign.read_raw_memory_table()
-        if table is not False:
-            return table
-    return None
-
-read_raw_memory_table.timeout = sign_memory_timeout
 
 def validate_label(label, type_name=None, raw_table=None):
     if label not in constants.valid_labels:
