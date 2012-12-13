@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--live', action='store_true', help='Autoupdate the server with code changes')
     
     options = parser.parse_args()
-    run(app.app, host=options.host, port=options.port)
+    run(app.app, host=options.host, port=options.port, reloader=options.live)
 
 if __name__ == '__main__':
     main()
