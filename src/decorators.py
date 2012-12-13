@@ -23,7 +23,7 @@ class Cached(object):
             
 def cached(func):
     '''Decorator to make functions cache their value. Converts function into
-    an object of type Cached, above. Set the timeout with timout and reset
+    an object of type Cached, above. Set the timeout with timeout and reset
     the cache with clear_cache(). None is not cached.
     '''
     return Cached(func, 0)
