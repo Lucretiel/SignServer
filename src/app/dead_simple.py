@@ -75,5 +75,22 @@ def send():
         sign.write(alphasign.String(text, label=label))
     
     return {'result': 'Sucessfully sent text'}
+
+@app.route('/isready')
+def check_ready():
+    raw_table = read_raw_memory_table()
     
+    bad = {'result': 'Sign is NOT ready for dead-simple.', 'recommendation':'hit <(URL)/dead-simple/reset> first.'}
+    good = {'result': 'Sign IS ready for dead-simple!', 'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started'}
+    
+    text = sign.find_entry(raw_table, 'A')
+    if text is None or text['type'] != 'TEXT':
+        return bad
+    
+    for label in constants.dead_simple_string_labels:
+        string = sign.find_entry(raw_table, label)
+        if string is None or string['type'] != 'STRING':
+            return bad
+        
+    return good
     
