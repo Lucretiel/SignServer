@@ -15,7 +15,7 @@ sign_retries = 3 #Default number of times to retry getting memory. 0 for forever
 
 @cached
 @retrying(sign_retries)
-def read_raw_memory_table(retries=None):
+def read_raw_memory_table():
     '''Caching, retrying version of sign.read_raw_memory_table. If the result is
     not None, preserves the result for `timeout` seconds. `timeout` is an
     instance variable of this function.
