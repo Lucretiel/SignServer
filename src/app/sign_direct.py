@@ -18,7 +18,7 @@ def validate_label(label, type_name = None):
     if label in constants.counter_labels:
         raise HTTPError(400, 'label cannot be a counter (1-5)')
     if type_name is not None:
-        memory_entry = self.sign.read_memory_table(label=label)
+        memory_entry = sign.read_memory_table(read_raw_memory_table, label)
         if memory_entry is None:
             raise HTTPError(400, 'label %s not in memory table' % label)
         if memory_entry['type'] == type_name:
