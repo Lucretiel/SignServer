@@ -34,10 +34,10 @@ def reset():
     text_length = params.get('textsize', 128, type=int)
     string_length = params.get('stringsize', 128, type=int)
     
-    text = alphasign.Text('%sREADY FOR DEAD-SIMPLE. SEND TO /dead-simple/send?text=<text>' % alphasign.colors.RED, label='A', size=text_length, mode=alphasign.modes.ROTATE)
+    text = (alphasign.Text('%sREADY FOR DEAD-SIMPLE. SEND TO /dead-simple/send?text=<text>' % alphasign.colors.RED, label='A', size=text_length, mode=alphasign.modes.ROTATE),)
     strings = (alphasign.String(label=label, size=string_length) for label in constants.dead_simple_string_labels)
     
-    sign.allocate(chain([text], strings))
+    sign.allocate(chain(text, strings))
     sign.set_run_sequence(text)
     read_raw_memory_table.clear_cache()
     
