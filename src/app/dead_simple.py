@@ -15,7 +15,6 @@ import constants
 import alphasign
 
 app = bottle.Bottle()
-delims = ('~', '~')
 
 def parse_labels(text):
     '''Custom parse_labels function. Only looks for a-z, and assumes string type
@@ -25,7 +24,7 @@ def parse_labels(text):
             return alphasign.String(label=match.lower()).call()
         return None
     
-    return general.parse_generic(text, replacer, delims)
+    return general.parse_generic(text, replacer)
 
 @app.route('/reset')
 def reset():
@@ -61,7 +60,7 @@ def send():
     mode = constants.get_mode(params.get('mode', 'ROTATE'))
     
     text = color + text
-    text = general.parse_colors(text, delims)
+    text = general.parse_colors(text)
     
     if label == 'A':
         text = parse_labels(text)
