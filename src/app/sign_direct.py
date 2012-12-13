@@ -209,7 +209,7 @@ def write_file(request, label):
     sign.write(obj)
     return {'result': 'memory written successfully'}
 
-@app.put('/show-text')
+@app.post('/show-text')
 @inject_json
 def show_text(data):
     label = data['label']
@@ -217,5 +217,6 @@ def show_text(data):
     if memory_entry['type'] != 'TEXT':
         raise HTTPError(400, 'The data at label %s must be of type TEXT. It is of type %s' % (label, memory_entry['type']))
     sign.set_run_sequence([alphasign.Text(label=label)])
+    return {'result': 'Sign showing text at %s' % label}
         
         
