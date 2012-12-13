@@ -68,14 +68,15 @@ def parse_colors(text):
         
     return parse_generic(text, replacer)
 
-def parse_labels(text):
+def parse_labels(text, memory=None):
     '''This function scans the text for label flags (ie, {C}) and replaces
     them with their alphasign call-character equivelents. It depends on the
     current memory table of the sign.
     '''
     
     types = {'STRING': alphasign.String, 'DOTS': alphasign.Dots}
-    memory = sign.parse_raw_memory_table(read_raw_memory_table())
+    if memory is None:
+        memory = sign.parse_raw_memory_table(read_raw_memory_table())
     memory_types = {entry['label']: types[entry['type']] 
                     for entry in memory if entry['type'] != 'TEXT'}
     
