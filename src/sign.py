@@ -10,7 +10,7 @@ from decorators import cached, retrying
 
 sign = alphasign.Serial()
 sign.connect()
-sign_memory_timeout = 60 * 10 #How long until the memory cache dies
+sign_memory_timeout = 60 * 60 #How long until the memory cache dies. -1 for never.
 sign_retries = 3 #Default number of times to retry getting memory. 0 for forever.
 
 @cached

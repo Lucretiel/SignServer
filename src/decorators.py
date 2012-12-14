@@ -14,9 +14,9 @@ class Cached(object):
         self.timeout = timeout
         
     def __call__(self, *args, **kwargs):
-        if time() - self.value_time > self.timeout or self.value == None:
+        if self.value is None or (time() - self.value_time > timeout and timeout != -1):
             self.value = self.func(*args)
-        self.value_time = time()
+            self.value_time = time()
         return self.value
     def clear_cache(self):
         self.value = None
