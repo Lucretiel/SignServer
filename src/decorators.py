@@ -6,27 +6,24 @@ Created on Dec 12, 2012
 
 from time import time
 
-class Cached(object):
-    def __init__(self, func, timeout):
+class cached(object):
+    '''Decorator to make functions cache their value. Converts function into
+    an object of type Cached, above. Set the timeout with timeout and reset
+    the cache with clear_cache(). None is not cached.
+    '''
+    def __init__(self, func):
         self.func = func
         self.value = None
         self.value_time = 0
-        self.timeout = timeout
+        self.timeout = 0
         
     def __call__(self, *args, **kwargs):
-        if self.value is None or (time() - self.value_time > self.timeout and self.timeout != -1):
+        if self.value is None or (self.timeout != -1 and time() - self.value_time > self.timeout):
             self.value = self.func(*args)
             self.value_time = time()
         return self.value
     def clear_cache(self):
         self.value = None
-            
-def cached(func):
-    '''Decorator to make functions cache their value. Converts function into
-    an object of type Cached, above. Set the timeout with timeout and reset
-    the cache with clear_cache(). None is not cached.
-    '''
-    return Cached(func, 0)
 
 def retrying(default):
     '''Decorator to make functions retry a certain number of times before
