@@ -119,7 +119,6 @@ def handle_clump(db, ID):
         if result is None:
             raise bottle.HTTPError(404)
         update_clump(result, db)
-        del result['_id']
         return result
         
 @app.get('/clumps/<ID>/fields/')
@@ -297,7 +296,6 @@ def update_clump(clump, db, fieldnames = None):
         write_to_sign(clump, new_allocation)
         db.allocations.remove()
         db.allocations.insert(new_allocation)
-        currently_allocated = new_allocation
     else:
         write_to_sign(clump, currently_allocated, fieldnames)
     
