@@ -119,6 +119,7 @@ def handle_clump(db, ID):
         if result is None:
             raise bottle.HTTPError(404)
         update_clump(result, db)
+        result['_id'] = str(result['_id'])
         return result
         
 @app.get('/clumps/<ID>/fields/')
