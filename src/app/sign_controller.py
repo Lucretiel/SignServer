@@ -162,6 +162,23 @@ def handle_field(db, ID, fieldname):
 # Methods pertaining to interacting with the sign
 ################################################################################
 
+def validate_allocation(allocation):
+    memory = read_raw_memory_table()
+    entry = sign.find_entry(memory, allocation['label'])
+    if entry is None or entry['type'] != 'TEXT' or entry['size'] != allocation['size']:
+        return False
+    for field in allocation['fields']:
+        entry = sign.find_entry(memory, field['label'])
+        if entry is None or entry['type'] != field['type']:
+            return False
+        if entry['type'] == 'STRING':
+            if entry['size'] != field['size']:
+                return False
+        elif entry['type'] == 'DOTS':
+            if entry['rows'] != field['size'][0] or entry['columns'] != field['size'][1]:
+                return False
+    return True
+
 def allocate(clump, labels=constants.sign_controller_labels):
     labels = iter(labels)
     try: text = alphasign.Text(label=next(labels), size=len(clump['text']))
@@ -204,12 +221,6 @@ def allocate(clump, labels=constants.sign_controller_labels):
     sign.allocate(objects)
     read_raw_memory_table.clear_cache()
     return allocation
-
-def allocate_multiple(clumps, labels=constants.sign_controller_labels):
-    labels = iter(labels)
-    allocations = [allocate(clump, labels) for clump in clumps]
-    allocations = filter(None, allocations)
-    return allocations
 
 def make_objects(clump, allocation, names=None):
     #If no names are given, make everything, including the text
@@ -277,9 +288,11 @@ def handle_active(db):
         if clump is None:
             raise bottle.HTTPError(400, 'No clump with that ID')
         
-        #TODO: check that currently_allocated reflects the state of the sign
         currently_allocated = db.allocations.find_one({'active': True})
-        if currently_allocated is None or currently_allocated['clump_id'] != clump['_id']:
+        if (currently_allocated is None or
+            currently_allocated['clump_id'] != clump['_id'] or
+            not validate_allocation(currently_allocated)):
+            
             new_allocation = allocate(clump)
             write_to_sign(clump, new_allocation)
             db.allocations.remove()
