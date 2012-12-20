@@ -185,11 +185,13 @@ def validate_allocation(allocation):
 
 def allocate(clump, labels=constants.sign_controller_labels):
     labels = iter(labels)
-    try: text = alphasign.Text(label=next(labels), size=len(clump['text']))
+    try: label = next(labels)
     except StopIteration: return {}
+    text = alphasign.Text(label=label, size=len(clump['text']))
     allocation = {'clump_id': clump['_id'],
                   'size': len(clump['text']),
                   'active': True,
+                  'label': label,
                   'fields': []}
     allocation_fields = allocation['fields']
     objects = [text]
