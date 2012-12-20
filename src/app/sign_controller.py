@@ -106,7 +106,7 @@ def handle_clump(db, ID):
         return result
     
     elif method == 'DELETE':
-        result = db.clumps.find_and_modify(ID, remove=True, safe=True)
+        result = db.clumps.find_and_modify({'_id': ID}, remove=True, safe=True)
         if result is None:
             raise bottle.HTTPError(404)
         return bottle.HTTPResponse(status=204)
@@ -115,7 +115,7 @@ def handle_clump(db, ID):
         data = bottle.request.json
         check_data(data)
         
-        result = db.clumps.find_and_modify(ID, {'$set': data}, safe=True, new=True)
+        result = db.clumps.find_and_modify({'_id': ID}, {'$set': data}, safe=True, new=True)
         if result is None:
             raise bottle.HTTPError(404)
         update_clump(result, db)
@@ -156,7 +156,7 @@ def handle_field(db, ID, fieldname):
         data = bottle.request.json
         check_field(data)
         
-        result = db.clumps.find_and_update({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
+        result = db.clumps.find_and_modify({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
                                   {'$set': {'fields.%s' % fieldname: data}},
                                   safe=True, new=True)
         if result is None:
