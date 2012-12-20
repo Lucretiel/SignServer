@@ -48,22 +48,21 @@ def validate_label(label, type_name=None, raw_table=None):
         if memory_entry['type'] == type_name:
             raise HTTPError(400, 'label %s is of type %s, not %s' % (label, type_name, memory_entry['type']))
 
-def parse_generic(text, replacer, delimiters = ('{', '}')):
+def parse_generic(text, replacer):
     '''This function scans the text for all flags of the form {stuff}, and
     replaces them according to the replacer function. The replacer function
     takes, as an argument, the content inside the flag. If it returns None,
     the flag is untouched.
     '''
     
-    open_delim, close_delim = delimiters
-    match_pattern = '\%s([^%s]*)\%s' % (open_delim, close_delim, close_delim)
+    match_pattern = '\{([^}]*)\}'
     def _replacer(match):
         replacement = replacer(match.group(1))
         return replacement if replacement is not None else match.group()
     
     return re.sub(match_pattern, _replacer, text)
 
-def parse_colors(text, delimiters = ('{', '}')):
+def parse_colors(text):
     '''This function scans the text for color flags (ie, {RED}) and replaces
     them with their alphasign call-character equivelent
     '''
@@ -75,7 +74,7 @@ def parse_colors(text, delimiters = ('{', '}')):
         
     return parse_generic(text, replacer)
 
-def parse_labels(text, memory=None, delimiters = ('{', '}')):
+def parse_labels(text, memory=None):
     '''This function scans the text for label flags (ie, {C}) and replaces
     them with their alphasign call-character equivelents. It depends on the
     current memory table of the sign.
@@ -92,7 +91,7 @@ def parse_labels(text, memory=None, delimiters = ('{', '}')):
             return memory_types[label](label=label).call()
         return None
         
-    return parse_generic(text, replacer, delimiters)
+    return parse_generic(text, replacer)
 
 def inject_json(func):
     '''Function decorator. Converts takes a function that would expect

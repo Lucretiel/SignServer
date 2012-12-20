@@ -36,7 +36,7 @@ def main():
     
     options = parser.parse_args()
     bottle.debug(options.debug)
-    bottle.run(app.app, host=options.host, port=options.port, reloader=options.live, )
+    bottle.run(app.app, host=options.host, port=options.port, reloader=options.live)
 
 if __name__ == '__main__':
     main()

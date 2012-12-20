@@ -22,11 +22,14 @@ along with SignServer.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from alphasign import colors, modes
+import itertools
 
 valid_labels = [chr(i) for i in xrange(int('20', 16), int('7F', 16))]
 priority_text_label = '0'
 counter_labels = [str(i) for i in xrange(1, 6)]
 dead_simple_string_labels = [chr(i) for i in xrange(ord('a'), ord('z') + 1)]
+sign_controller_labels = [chr(i) for i in itertools.chain(xrange(ord('A'), ord('Z') + 1),
+                                                          xrange(ord('a'), ord('z') + 1))]
 
 def get_from_module(name, module, default):
     if name not in dir(module):
