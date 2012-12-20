@@ -84,7 +84,10 @@ def handle_all_clumps(db):
         
         updated_data = db.default.find_one()
         if updated_data is None:
-            updated_data = true_defaults
+            db.default.insert(true_defaults)
+            updated_data = db.default.find_one()
+            if updated_data is None:
+                raise bottle.HTTPError(500, 'Failed to read defaults')
             
         updated_data.update(data)
         
