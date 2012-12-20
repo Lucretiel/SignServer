@@ -199,7 +199,7 @@ def allocate(clump, labels=constants.sign_controller_labels):
         if 'rows' in obj:
             #Sign stuff
             num_rows = len(object['rows'])
-            num_columns = max(itertools.imap(lambda row: len(row), obj['rows']))
+            num_columns = max(len(row) for row in obj['rows'])
             obj = alphasign.Dots(num_rows, num_columns, label=label)
             objects.append(obj)
             
@@ -211,7 +211,7 @@ def allocate(clump, labels=constants.sign_controller_labels):
             allocation_fields.append(field)
         elif 'text' in obj:
             #Sign stuff
-            size = len(obj)
+            size = len(obj['text'])
             obj = alphasign.String(label=label, size=size)
             objects.append(obj)
             
