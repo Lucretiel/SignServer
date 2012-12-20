@@ -63,7 +63,7 @@ def check_data(data):
             check_field(field, fieldname)
             
 @app.route('/clumps/', method = ('GET', 'POST', 'DELETE'))
-def get_clump_list(db):
+def handle_all_clumps(db):
     method = bottle.request.method
     
     if method == 'GET':
