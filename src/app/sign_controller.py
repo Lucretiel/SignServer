@@ -239,7 +239,8 @@ def make_objects(clump, allocation, names=None):
                 return alphasign.Dots(label=field['label']).call()
         #parse labels.
         text = general.parse_generic(text, label_replacer)
-        yield alphasign.Text(text, allocation['label'], mode=clump['mode'])
+        yield alphasign.Text(text, allocation['label'],
+                             mode=constants.get_mode(clump['mode']))
     
     #Run through each named subfield
     for allocation_field in allocation['fields']:
@@ -297,6 +298,8 @@ def handle_active(db):
             write_to_sign(clump, new_allocation)
             db.allocations.remove()
             db.allocations.insert(new_allocation)
+            currently_allocated = new_allocation
         else:
             write_to_sign(clump, currently_allocated)
+        sign.set_run_sequence([alphasign.Text(label=currently_allocated['label'])])
             
