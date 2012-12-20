@@ -272,7 +272,7 @@ def write_to_sign(clump, allocation, names=None):
     for obj in make_objects(clump, allocation, names):
         sign.write(obj)
     
-@app.route('/sign-controller/active-clump', method=('GET', 'PUT'))
+@app.route('/active-clump', method=('GET', 'PUT'))
 def handle_active(db):
     method = bottle.request.method
     
