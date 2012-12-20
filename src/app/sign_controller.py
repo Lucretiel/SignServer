@@ -176,7 +176,7 @@ def validate_allocation_memory(allocation):
         if entry['type'] == 'STRING':
             if entry['size'] != field['size']: return False
         elif entry['type'] == 'DOTS':
-            if entry['rows'] != field['size'][0] or entry['columns'] != field['size'][1]: return False
+            if entry['height'] != field['size'][0] or entry['width'] != field['size'][1]: return False
     return True
 
 def validate_allocation_clump(allocation, clump):
