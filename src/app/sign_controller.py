@@ -115,10 +115,11 @@ def handle_clump(db, ID):
         data = bottle.request.json
         check_data(data)
         
-        result = db.clumps.find_and_modify(ID, {'$set': data}, fields={'_id': False}, safe=True, new=True)
+        result = db.clumps.find_and_modify(ID, {'$set': data}, safe=True, new=True)
         if result is None:
             raise bottle.HTTPError(404)
-        
+        update_clump(result, db)
+        del result['_id']
         return result
         
 @app.get('/clumps/<ID>/fields/')
@@ -155,11 +156,12 @@ def handle_field(db, ID, fieldname):
         data = bottle.request.json
         check_field(data)
         
-        result = db.clumps.update({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
+        result = db.clumps.find_and_update({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
                                   {'$set': {'fields.%s' % fieldname: data}},
-                                  safe=True)
-        if result['n'] == 0:
+                                  safe=True, new=True)
+        if result is None:
             raise bottle.HTTPError(404)
+        update_clump(clump, db, [fieldname])
         return bottle.HTTPResponse(status=204)
     
 ################################################################################
@@ -284,6 +286,20 @@ def write_to_sign(clump, allocation, names=None):
     '''
     for obj in make_objects(clump, allocation, names):
         sign.write(obj)
+        
+def update_clump(clump, db, fieldnames = None):
+    currently_allocated = db.allocations.find_one({'clump_id': clump['_id'], 'active': True})
+    if (currently_allocated is None or
+        not validate_allocation_clump(currently_allocated, clump) or
+        not validate_allocation_memory(currently_allocated)):
+        
+        new_allocation = allocate(clump)
+        write_to_sign(clump, new_allocation)
+        db.allocations.remove()
+        db.allocations.insert(new_allocation)
+        currently_allocated = new_allocation
+    else:
+        write_to_sign(clump, currently_allocated, fieldnames)
     
 @app.route('/active-clump', method=('GET', 'PUT'))
 def handle_active(db):
@@ -305,18 +321,5 @@ def handle_active(db):
         clump = db.clumps.find_one(ObjectId(data['ID']))
         if clump is None:
             raise bottle.HTTPError(400, 'No clump with that ID')
-        
-        currently_allocated = db.allocations.find_one({'active': True})
-        if (currently_allocated is None or
-            not validate_allocation_clump(currently_allocated, clump) or
-            not validate_allocation_memory(currently_allocated)):
-            
-            new_allocation = allocate(clump)
-            write_to_sign(clump, new_allocation)
-            db.allocations.remove()
-            db.allocations.insert(new_allocation)
-            currently_allocated = new_allocation
-        else:
-            write_to_sign(clump, currently_allocated)
-        sign.set_run_sequence([alphasign.Text(label=currently_allocated['label'])])
+        update_clump(clump, db)
             
