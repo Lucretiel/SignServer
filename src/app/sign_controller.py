@@ -52,7 +52,7 @@ def check_field(data, fieldname = 'field'):
                 raise bottle.HTTPError(400, 'Error in %s: each row must only have digits 0-8' % fieldname)
         
 def check_data(data):
-    for key, value in data:
+    for key, value in data.iteritems():
         if key not in fields:
             raise bottle.HTTPError(400, 'Unrecognized field %s' % key)
         if not isinstance(value, fields[key]):
