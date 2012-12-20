@@ -82,7 +82,7 @@ def handle_all_clumps(db):
         data = bottle.request.json
         check_data(data)
         
-        updated_data = db.default.find_one()
+        updated_data = db.default.find_one(fields={'_id': False})
         if updated_data is None:
             db.default.insert(true_defaults)
             updated_data = db.default.find_one(fields={'_id': False})
