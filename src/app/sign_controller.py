@@ -166,21 +166,32 @@ def handle_field(db, ID, fieldname):
 # Methods pertaining to interacting with the sign
 ################################################################################
 
-def validate_allocation(allocation):
+def validate_allocation_memory(allocation):
     memory = read_raw_memory_table()
     entry = sign.find_entry(memory, allocation['label'])
-    if entry is None or entry['type'] != 'TEXT' or entry['size'] != allocation['size']:
-        return False
+    if entry is None or entry['type'] != 'TEXT' or entry['size'] != allocation['size']: return False
     for field in allocation['fields']:
         entry = sign.find_entry(memory, field['label'])
-        if entry is None or entry['type'] != field['type']:
-            return False
+        if entry is None or entry['type'] != field['type']: return False
         if entry['type'] == 'STRING':
-            if entry['size'] != field['size']:
-                return False
+            if entry['size'] != field['size']: return False
         elif entry['type'] == 'DOTS':
-            if entry['rows'] != field['size'][0] or entry['columns'] != field['size'][1]:
-                return False
+            if entry['rows'] != field['size'][0] or entry['columns'] != field['size'][1]: return False
+    return True
+
+def validate_allocation_clump(allocation, clump):
+    if allocation['clump_id'] != clump['_id']: return False
+    if allocation['size'] < len(clump['text']): return False
+    for name, data in clump['fields'].iteritems():
+        allocation_field = next((field for field in allocation['fields'] if field['name'] == name), None)
+        if allocation_field is None: return False
+        if 'text' in data:
+            if allocation_field['type'] != 'STRING': return False
+            if allocation_field['size'] < len(data['text']): return False
+        elif 'rows' in data:
+            if allocation_field['type'] != 'DOTS': return False
+            if allocation_field['size'][0] < len(data['rows']): return False
+            if allocation_field['size'][1] < max(len(row) for row in data['rows']): return False
     return True
 
 def allocate(clump, labels=constants.sign_controller_labels):
@@ -297,8 +308,8 @@ def handle_active(db):
         
         currently_allocated = db.allocations.find_one({'active': True})
         if (currently_allocated is None or
-            currently_allocated['clump_id'] != clump['_id'] or
-            not validate_allocation(currently_allocated)):
+            not validate_allocation_clump(currently_allocated, clump) or
+            not validate_allocation_memory(currently_allocated)):
             
             new_allocation = allocate(clump)
             write_to_sign(clump, new_allocation)
