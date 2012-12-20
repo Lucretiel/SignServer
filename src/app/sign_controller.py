@@ -22,9 +22,9 @@ app = bottle.Bottle()
 
 app.install(bottle_mongo.MongoPlugin('localhost:27017', 'signcontroller', 'db', ))
 
-fields = {'name': str,
-          'text': str,
-          'mode': str,
+fields = {'name': basestring,
+          'text': basestring,
+          'mode': basestring,
           'fields': dict}
 
 true_defaults = {'name': '',
@@ -40,13 +40,13 @@ def check_field(data, fieldname = 'field'):
     elif 'text' not in data and 'rows' not in data:
         raise bottle.HTTPError(400, 'Error in %s: must have either text of rows in field' % fieldname)
     elif 'text' in data:
-        if not isinstance(data['text'], str):
+        if not isinstance(data['text'], basestring):
             raise bottle.HTTPError(400, 'Error in %s: text must be a string' % fieldname)
     elif 'rows' in data:
         if not isinstance(data['rows'], list):
             raise bottle.HTTPError(400, 'Error in %s: rows must be a list' % fieldname)
         for row in data['rows']:
-            if not isinstance(row, str):
+            if not isinstance(row, basestring):
                 raise bottle.HTTPError(400, 'Error in %s: each row must be a string' % fieldname)
             elif re.match('[0-8]*', row) is None:
                 raise bottle.HTTPError(400, 'Error in %s: each row must only have digits 0-8' % fieldname)
