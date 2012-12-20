@@ -209,7 +209,7 @@ def allocate(clump, labels=constants.sign_controller_labels):
     for (name, obj), label in itertools.izip(clump['fields'].iteritems(), labels):
         if 'rows' in obj:
             #Sign stuff
-            num_rows = len(object['rows'])
+            num_rows = len(obj['rows'])
             num_columns = max(len(row) for row in obj['rows'])
             obj = alphasign.Dots(num_rows, num_columns, label=label)
             objects.append(obj)
