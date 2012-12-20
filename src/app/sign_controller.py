@@ -270,7 +270,7 @@ def make_objects(clump, allocation, names=None):
         if allocation_field['type'] == 'DOTS':
             rows, columns = allocation_field['size']
             dots = alphasign.Dots(rows, columns, label=allocation_field['label'])
-            for i, row in enumerate(clump_field['row']):
+            for i, row in enumerate(clump_field['rows']):
                 dots.set_row(i, row)
             yield dots
         elif allocation_field['type'] == 'STRING':
