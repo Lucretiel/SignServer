@@ -115,10 +115,10 @@ def handle_clump(db, ID):
         data = bottle.request.json
         check_data(data)
         
-        result = db.clumps.update(ID, {'$set': data}, safe=True)
-        if result['n'] == 0:
+        result = db.clumps.find_and_modify(ID, {'$set': data}, safe=True, new=True)
+        if result is None:
             raise bottle.HTTPError(404)
-        return bottle.HTTPResponse(status=204)
+        return result
         
 @app.get('/clumps/<ID>/fields/')
 def get_field_list(db, ID):
