@@ -59,7 +59,7 @@ def check_data(data):
             raise bottle.HTTPError(400, 'Type mismatch. Field %s should be type %s. Got %s' % (key, str(fields[key]), str(type(value))))
         
     if 'fields' in data:
-        for fieldname, field in data['fields']:
+        for fieldname, field in data['fields'].iteritems():
             check_field(field, fieldname)
             
 @app.route('/clumps/', method = ('GET', 'POST', 'DELETE'))
