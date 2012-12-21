@@ -169,6 +169,8 @@ def handle_field(db, ID, fieldname):
 ################################################################################
 
 def validate_allocation_memory(allocation):
+    '''Verify that the allocation object matches the allocation in the sign.
+    '''
     memory = read_raw_memory_table()
     entry = sign.find_entry(memory, allocation['label'])
     if entry is None or entry['type'] != 'TEXT' or entry['size'] != allocation['size']: return False
@@ -182,6 +184,8 @@ def validate_allocation_memory(allocation):
     return True
 
 def validate_allocation_clump(allocation, clump):
+    '''Verify that the allocation object matches the clump
+    '''
     if allocation['clump_id'] != clump['_id']: return False
     if allocation['size'] < len(clump['text']): return False
     for name, data in clump['fields'].iteritems():
@@ -196,23 +200,29 @@ def validate_allocation_clump(allocation, clump):
             if allocation_field['size'][1] < max(len(row) for row in data['rows']): return False
     return True
 
-def allocate(clump, labels=constants.sign_controller_labels):
+def allocation_object(clump, labels):
+    '''Generates an allocation object, based on a clump. Returns (allocation,
+    objects), where allocation is the database entry, and objects is a list
+    of alphasign objects suitable for allocation. Returns false if there are
+    not enough labels'''
     labels = iter(labels)
     try: label = next(labels)
     except StopIteration: return {}
     text = alphasign.Text(label=label, size=len(clump['text']))
     allocation = {'clump_id': clump['_id'],
                   'size': len(clump['text']),
-                  'active': True,
+                  'active': False,
+                  'lastused': 0,
+                  'justallocated': True,
                   'label': label,
                   'fields': []}
     allocation_fields = allocation['fields']
     objects = [text]
-    for (name, obj), label in itertools.izip(clump['fields'].iteritems(), labels):
-        if 'rows' in obj:
+    for (name, value), label in itertools.izip(clump['fields'].iteritems(), labels):
+        if 'rows' in value:
             #Sign stuff
-            num_rows = len(obj['rows'])
-            num_columns = max(len(row) for row in obj['rows'])
+            num_rows = len(value['rows'])
+            num_columns = max(len(row) for row in value['rows'])
             obj = alphasign.Dots(num_rows, num_columns, label=label)
             objects.append(obj)
             
@@ -236,12 +246,15 @@ def allocate(clump, labels=constants.sign_controller_labels):
             allocation_fields.append(field)
         else:
             raise bottle.HTTPError(500, 'Bad field: %s\nin clump id %s' % (name, str(clump['_id'])))
-            
-    sign.allocate(objects)
-    read_raw_memory_table.clear_cache()
-    return allocation
+    
+    if len(allocation_fields) != len(clump['fields']):
+        return False
+    return allocation, objects
 
 def make_objects(clump, allocation, names=None):
+    '''Given a clump, and associated allocation table entry, generate the
+    objects to be written to the sign.
+    '''
     #If no names are given, make everything, including the text
     if names is None:
         text = clump['text']
