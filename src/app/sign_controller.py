@@ -190,7 +190,7 @@ def request_clear_active(clump_id=None):
 def make_objects(clump, names=None):
     '''Given a clump, generate the objects to be written to the sign.
     '''
-    labels = constants.sign_controller_labels
+    labels = iter(constants.sign_controller_labels)
     text_label = next(labels)
     fields = clump['fields']
     
