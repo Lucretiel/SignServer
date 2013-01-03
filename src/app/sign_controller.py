@@ -4,63 +4,72 @@ Created on Dec 18, 2012
 @author: nathan
 '''
 
-import re
-import itertools
+import sys
+import multiprocessing
+from datetime import datetime
 
+#MongoDB stuff
+from bson import ObjectId
+from pymongo.errors import CollectionInvalid
+
+#web stuff
 import bottle
 import bottle_mongo
 
-from bson import ObjectId
-
-from sign import sign, read_raw_memory_table
+#Sign stuff
+from sign import sign
 import alphasign
 
+#Misc stuff
+import jsonschema
+
+#Local stuff
 import constants
 import general
 
 app = bottle.Bottle()
 
-app.install(bottle_mongo.MongoPlugin('localhost:27017', 'signcontroller', 'db', ))
-
-fields = {'name': basestring,
-          'text': basestring,
-          'mode': basestring,
-          'fields': dict}
+mongo_plugin = bottle_mongo.MongoPlugin('localhost:27017', 'signcontroller', 'db')
+app.install(mongo_plugin)
 
 true_defaults = {'name': '',
                  'text': '',
                  'mode': 'ROTATE',
                  'fields': {}}
 
-def check_field(data, fieldname = 'field'):
-    if not fieldname.isalnum():
-        raise bottle.HTTPError(400, 'Error in %s: field name must be alphanumeric', )
-    if 'text' in data and 'rows' in data:
-        raise bottle.HTTPError(400, "Error in %s: Can't have text AND rows in field" % fieldname)
-    elif 'text' not in data and 'rows' not in data:
-        raise bottle.HTTPError(400, 'Error in %s: must have either text of rows in field' % fieldname)
-    elif 'text' in data:
-        if not isinstance(data['text'], basestring):
-            raise bottle.HTTPError(400, 'Error in %s: text must be a string' % fieldname)
-    elif 'rows' in data:
-        if not isinstance(data['rows'], list):
-            raise bottle.HTTPError(400, 'Error in %s: rows must be a list' % fieldname)
-        for row in data['rows']:
-            if not isinstance(row, basestring):
-                raise bottle.HTTPError(400, 'Error in %s: each row must be a string' % fieldname)
-            elif re.match('[0-8]*', row) is None:
-                raise bottle.HTTPError(400, 'Error in %s: each row must only have digits 0-8' % fieldname)
-        
+subfield_schema = {'type': [{'type': 'object',
+                             'properties':
+                                {'text': {'type': 'string',
+                                          'required': True}}},
+                            {'type': 'object',
+                             'properties':
+                                {'rows': {'type': 'array',
+                                          'required': True,
+                                          'items':
+                                            {'type': 'string',
+                                             'pattern': '[0-8]*'}}}}
+                            ]}
+
+clump_schema = {'type': 'object',
+                'properties':
+                    {'name': {'type': 'string'},
+                     'text': {'type': 'string'},
+                     'mode': {'type': 'string'},
+                     'fields': {'type': 'object',
+                                'patternProperties':
+                                    {'[a-zA-Z0-9]+': subfield_schema}}}}
+
+def _check(data, schema):
+    try:
+        jsonschema.validate(data, schema)
+    except jsonschema.ValidationError as e:
+        raise bottle.HTTPError(400, e.message, e, sys.exc_traceback)
+
 def check_data(data):
-    for key, value in data.iteritems():
-        if key not in fields:
-            raise bottle.HTTPError(400, 'Unrecognized field %s' % key)
-        if not isinstance(value, fields[key]):
-            raise bottle.HTTPError(400, 'Type mismatch. Field %s should be type %s. Got %s' % (key, str(fields[key]), str(type(value))))
-        
-    if 'fields' in data:
-        for fieldname, field in data['fields'].iteritems():
-            check_field(field, fieldname)
+    _check(data, clump_schema)
+    
+def check_field(data):
+    _check(data, subfield_schema)
             
 @app.route('/clumps/', method = ('GET', 'POST', 'DELETE'))
 def handle_all_clumps(db):
@@ -75,24 +84,19 @@ def handle_all_clumps(db):
                            for clump in db.clumps.find(spec, {'name': True})]}
         
     elif method == 'DELETE':
-        db.clumps.remove(safe=True)
+        db.clumps.remove()
+        request_clear_active()
         return bottle.HTTPResponse(status=204)
     
     elif method == 'POST':
         data = bottle.request.json
         check_data(data)
         
-        updated_data = db.default.find_one(fields={'_id': False})
-        if updated_data is None:
-            db.default.insert(true_defaults)
-            updated_data = db.default.find_one(fields={'_id': False})
-            if updated_data is None:
-                raise bottle.HTTPError(500, 'Failed to read defaults')
-        
+        updated_data = dict(true_defaults)
         updated_data.update(data)
         
-        id = db.clumps.insert(updated_data, safe=True)
-        return bottle.HTTPResponse(str(id), 201)
+        new_clump = db.clumps.insert(updated_data)
+        return bottle.HTTPResponse(str(new_clump), 201)
 
 @app.route('/clumps/<ID>', method=('GET', 'PUT', 'DELETE'))
 def handle_clump(db, ID):
@@ -106,23 +110,24 @@ def handle_clump(db, ID):
         return result
     
     elif method == 'DELETE':
-        result = db.clumps.find_and_modify({'_id': ID}, remove=True, safe=True)
+        result = db.clumps.find_and_modify({'_id': ID}, remove=True)
         if result is None:
             raise bottle.HTTPError(404)
+        request_clear_active(ID)
         return bottle.HTTPResponse(status=204)
     
     elif method == 'PUT':
         data = bottle.request.json
         check_data(data)
         
-        result = db.clumps.find_and_modify({'_id': ID}, {'$set': data}, safe=True, new=True)
+        result = db.clumps.find_and_modify({'_id': ID}, {'$set': data})
         if result is None:
             raise bottle.HTTPError(404)
-        update_clump(result, db)
+        request_update_active(ID)
         result['_id'] = str(result['_id'])
         return result
         
-@app.get('/clumps/<ID>/fields/')
+@app.route('/clumps/<ID>/fields/')
 def get_field_list(db, ID):
     clump = db.clumps.find_one(ObjectId(ID))
     if clump is None:
@@ -146,10 +151,10 @@ def handle_field(db, ID, fieldname):
     
     elif method == 'DELETE':
         result = db.clumps.update({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
-                                  {'$unset': {'fields.%s' % fieldname: ''}},
-                                  safe=True)
+                                  {'$unset': {'fields.%s' % fieldname: ''}})
         if result['n'] == 0:
             raise bottle.HTTPError(404)
+        request_update_active(ID)
         return bottle.HTTPResponse(status=204)
     
     elif method == 'PUT':
@@ -157,168 +162,85 @@ def handle_field(db, ID, fieldname):
         check_field(data)
         
         result = db.clumps.find_and_modify({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
-                                  {'$set': {'fields.%s' % fieldname: data}},
-                                  safe=True, new=True)
+                                           {'$set': {'fields.%s' % fieldname: data}}, new=True)
         if result is None:
             raise bottle.HTTPError(404)
-        update_clump(clump, db, [fieldname])
+        request_update_active(ID)
         return bottle.HTTPResponse(status=204)
     
+
 ################################################################################
 # Methods pertaining to interacting with the sign
 ################################################################################
 
-def validate_allocation_memory(allocation):
-    '''Verify that the allocation object matches the allocation in the sign.
-    '''
-    memory = read_raw_memory_table()
-    entry = sign.find_entry(memory, allocation['label'])
-    if entry is None or entry['type'] != 'TEXT' or entry['size'] != allocation['size']: return False
-    for field in allocation['fields']:
-        entry = sign.find_entry(memory, field['label'])
-        if entry is None or entry['type'] != field['type']: return False
-        if entry['type'] == 'STRING':
-            if entry['size'] != field['size']: return False
-        elif entry['type'] == 'DOTS':
-            if entry['height'] != field['size'][0] or entry['width'] != field['size'][1]: return False
-    return True
+receive_message, send_message = multiprocessing.Pipe(False)
 
-def validate_allocation_clump(allocation, clump):
-    '''Verify that the allocation object matches the clump
-    '''
-    if allocation['clump_id'] != clump['_id']: return False
-    if allocation['size'] < len(clump['text']): return False
-    for name, data in clump['fields'].iteritems():
-        allocation_field = next((field for field in allocation['fields'] if field['name'] == name), None)
-        if allocation_field is None: return False
-        if 'text' in data:
-            if allocation_field['type'] != 'STRING': return False
-            if allocation_field['size'] < len(data['text']): return False
-        elif 'rows' in data:
-            if allocation_field['type'] != 'DOTS': return False
-            if allocation_field['size'][0] < len(data['rows']): return False
-            if allocation_field['size'][1] < max(len(row) for row in data['rows']): return False
-    return True
-
-def allocation_object(clump, labels):
-    '''Generates an allocation object, based on a clump. Returns (allocation,
-    objects), where allocation is the database entry, and objects is a list
-    of alphasign objects suitable for allocation. Returns false if there are
-    not enough labels'''
-    labels = iter(labels)
-    try: label = next(labels)
-    except StopIteration: return {}
-    text = alphasign.Text(label=label, size=len(clump['text']))
-    allocation = {'clump_id': clump['_id'],
-                  'size': len(clump['text']),
-                  'active': False,
-                  'lastused': 0,
-                  'justallocated': True,
-                  'label': label,
-                  'fields': []}
-    allocation_fields = allocation['fields']
-    objects = [text]
-    for (name, value), label in itertools.izip(clump['fields'].iteritems(), labels):
-        if 'rows' in value:
-            #Sign stuff
-            num_rows = len(value['rows'])
-            num_columns = max(len(row) for row in value['rows'])
-            obj = alphasign.Dots(num_rows, num_columns, label=label)
-            objects.append(obj)
-            
-            #Database stuff
-            field = {'name': name,
-                     'type': 'DOTS',
-                     'label': label,
-                     'size': [num_rows, num_columns]}
-            allocation_fields.append(field)
-        elif 'text' in obj:
-            #Sign stuff
-            size = len(obj['text'])
-            obj = alphasign.String(label=label, size=size)
-            objects.append(obj)
-            
-            #Database stuff
-            field = {'name': name,
-                     'type': 'STRING',
-                     'label': label,
-                     'size': size}
-            allocation_fields.append(field)
-        else:
-            raise bottle.HTTPError(500, 'Bad field: %s\nin clump id %s' % (name, str(clump['_id'])))
+def send_request(command, clump_id):
+    send_message.send({'command': command, 'id': clump_id})
     
-    if len(allocation_fields) != len(clump['fields']):
-        return False
-    return allocation, objects
-
-def make_objects(clump, allocation, names=None):
-    '''Given a clump, and associated allocation table entry, generate the
-    objects to be written to the sign.
-    '''
-    #If no names are given, make everything, including the text
-    if names is None:
-        text = clump['text']
-        #parse colors
-        text = general.parse_colors(text)
-        def label_replacer(flag):
-            #Find idiom. find the first item in allocation with the right name.
-            field = next((field for field in allocation['fields'] if field['name'] == flag), None)
-            if field is None:
-                return None
-            if field['type'] == 'STRING':
-                return alphasign.String(label=field['label']).call()
-            elif field['type'] == 'DOTS':
-                return alphasign.Dots(label=field['label']).call()
-        #parse labels.
-        text = general.parse_generic(text, label_replacer)
-        yield alphasign.Text(text, allocation['label'],
-                             mode=constants.get_mode(clump['mode']))
+def request_new_active(clump_id):
+    send_message('SET', clump_id)
     
+def request_update_active(clump_id):
+    send_message('UPDATE', clump_id)
+    
+def request_clear_active(clump_id=None):
+    send_message('CLEAR', clump_id)
+                
+def make_objects(clump, names=None):
+    '''Given a clump, generate the objects to be written to the sign.
+    '''
+    labels = constants.sign_controller_labels
+    text_label = next(labels)
+    fields = clump['fields']
+    
+    label_map = {name: (next(labels), 'STRING' if 'text' in field else 'DOTS')
+                 for name, field in sorted(fields.iteritems())}
+    
+    text = clump['text']
+    #parse colors
+    text = general.parse_colors(text)
+    
+    #parse labels
+    def label_replacer(flag):
+        if flag in label_map:
+            label, type = label_map['flag']
+            if type == 'STRING':
+                return alphasign.String(label=label).call()
+            elif type == 'DOTS':
+                return alphasign.Dots(label=label).call()
+        return None
+    text = general.parse_generic(text, label_replacer)
+    
+    yield alphasign.Text(text, text_label,
+                         mode=constants.get_mode(clump['mode']))
+    
+    if names is not None:
+        label_map = {name: val for name, val in label_map if name in names}
+        
     #Run through each named subfield
-    for allocation_field in allocation['fields']:
-        if names and allocation_field['name'] not in names:
-            continue
+    for fieldname, (label, fieldtype) in label_map:
+        field = fields[fieldname]
         
-        #get the associated clump subfield
-        clump_field = clump['fields'][allocation_field['name']]
-        
-        if allocation_field['type'] == 'DOTS':
-            rows, columns = allocation_field['size']
-            dots = alphasign.Dots(rows, columns, label=allocation_field['label'])
-            for i, row in enumerate(clump_field['rows']):
+        if fieldtype == 'DOTS':
+            rows = field['rows']
+            num_rows = len(rows)
+            num_columns = max(len(row) for row in rows)
+            dots = alphasign.Dots(num_rows, num_columns, label=label)
+            for i, row in enumerate(rows):
                 dots.set_row(i, str(row))
             yield dots
-        elif allocation_field['type'] == 'STRING':
-            text = clump_field['text']
+        elif fieldtype == 'STRING':
+            text = field['text']
             text = general.parse_colors(text)
-            yield alphasign.String(text, label=allocation_field['label'])
-
-def write_to_sign(clump, allocation, names=None):
-    '''This is the do-work function. It assumes everything leading up to it is
-    good.
-    '''
-    for obj in make_objects(clump, allocation, names):
-        sign.write(obj)
-        
-def update_clump(clump, db, fieldnames = None):
-    currently_allocated = db.allocations.find_one({'clump_id': clump['_id'], 'active': True})
-    if (currently_allocated is None or
-        not validate_allocation_clump(currently_allocated, clump) or
-        not validate_allocation_memory(currently_allocated)):
-        
-        new_allocation = allocate(clump)
-        write_to_sign(clump, new_allocation)
-        db.allocations.remove()
-        db.allocations.insert(new_allocation)
-    else:
-        write_to_sign(clump, currently_allocated, fieldnames)
+            yield alphasign.String(text, label=label)
     
 @app.route('/active-clump', method=('GET', 'PUT'))
 def handle_active(db):
     method = bottle.request.method
     
     if method == 'GET':
-        active = db.allocations.find_one({'active': True}, {'clump_id': True, '_id': False})
+        active = db.active.find_one()
         if active is None:
             raise bottle.HTTPError(404)
         return {'ID': str(active['clump_id'])}
@@ -333,5 +255,77 @@ def handle_active(db):
         clump = db.clumps.find_one(ObjectId(data['ID']))
         if clump is None:
             raise bottle.HTTPError(400, 'No clump with that ID')
-        update_clump(clump, db)
+        request_new_active(clump['_id'])
+        
+################################################################################
+# SignInteractor- a separate process for actually interacting with the sign
+################################################################################
+
+class SignInteractor(multiprocessing.Process):
+    def __init__(self, queue):
+        super(SignInteractor, self).__init__()
+        self.daemon = True
+        self.queue = queue #This is actually a Pipe endpoint. Consider renaming.
+        self.db = mongo_plugin.get_mongo()
+        try:
+            self.db.create_collection('active', capped=True, max=1)
+        except CollectionInvalid: pass
+        
+    def run(self):
+        try:
+            while True:
+                message = self.queue.recv()
+                clump_id = message['id']
+                if message['command'] == 'SET':
+                    currently_active = self.db.active.find_one({'clump_id': clump_id})
+                    if currently_active is None:
+                        self.set_active(clump_id)
+                
+                elif message['command'] == 'UPDATE':
+                    currently_active = self.db.active.find_one({'clump_id': clump_id})
+                    if currently_active is not None:
+                        self.set_active(clump_id)
+                        
+                elif message['command'] == 'CLEAR':
+                    query = {'clump_id': clump_id} if clump_id is not None else {}
+                    currently_active = self.db.active.find_one(query)
+                    if currently_active is not None:
+                        self.set_previous_active()
+                        
+        except EOFError:
+            pass
+        finally:
+            self.queue.close()
             
+    def set_active(self, clump_id):
+        '''Locate the clump with the given id and set it's last displayed to
+        now, set it to active, and display it. If it doesn't exist, try the last
+        most recently displayed clump.
+        '''
+        clump = self.db.clumps.find_and_modify({'_id': clump_id},
+                                               {'$set': {'last_displayed': datetime.now()}})
+        if clump is None:
+            self.set_previous_active()
+        else:
+            self.db.active.insert({'clump_id': clump_id})
+            self.write_to_sign(clump)
+            
+    def set_previous_active(self):
+        '''Finds the last most recently displayed clump and displays it.
+        '''
+        previous = self.db.clumps.find().sort('last_displayed', -1).limit(1)
+        if previous.count(True) > 0: #count(True) counts WITH limit(1)
+            previous = previous[0]
+            self.set_active(previous['_id'])
+        else:
+            self.db.active.insert({'clump_id': None})
+            empty_clump = {'name': '', 'text': '', 'mode': 'HOLD', 'fields': {}}
+            self.write_to_sign(empty_clump)
+        
+    def write_to_sign(self, clump):
+        objects = list(make_objects(clump))
+        sign.allocate(objects)
+        for obj in objects: sign.write(obj)
+        sign.set_run_sequence([objects[0]])
+        
+sign_interactor_process = SignInteractor(receive_message)
