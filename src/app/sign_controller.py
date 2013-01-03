@@ -268,7 +268,7 @@ class SignInteractor(multiprocessing.Process):
         self.queue = queue #This is actually a Pipe endpoint. Consider renaming.
         self.db = mongo_plugin.get_mongo()
         try:
-            self.db.create_collection('active', capped=True, max=1)
+            self.db.create_collection('active', capped=True, max=1, size=1000)
         except CollectionInvalid: pass
         
     def run(self):
