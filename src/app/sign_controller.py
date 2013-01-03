@@ -272,9 +272,11 @@ class SignInteractor(multiprocessing.Process):
         except CollectionInvalid: pass
         
     def run(self):
+        print "Sign worker started"
         try:
             while True:
                 message = self.queue.recv()
+                print "Recieved %s" % message
                 clump_id = message['id']
                 if message['command'] == 'SET':
                     currently_active = self.db.active.find_one({'clump_id': clump_id})
