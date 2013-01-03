@@ -329,3 +329,4 @@ class SignInteractor(multiprocessing.Process):
         sign.set_run_sequence([objects[0]])
         
 sign_interactor_process = SignInteractor(receive_message)
+sign_interactor_process.start()
