@@ -179,13 +179,13 @@ def send_request(command, clump_id):
     send_message.send({'command': command, 'id': clump_id})
     
 def request_new_active(clump_id):
-    send_message('SET', clump_id)
+    send_request('SET', clump_id)
     
 def request_update_active(clump_id):
-    send_message('UPDATE', clump_id)
+    send_request('UPDATE', clump_id)
     
 def request_clear_active(clump_id=None):
-    send_message('CLEAR', clump_id)
+    send_request('CLEAR', clump_id)
                 
 def make_objects(clump, names=None):
     '''Given a clump, generate the objects to be written to the sign.
