@@ -278,11 +278,11 @@ def handle_active(db):
             if clump is None:
                 raise bottle.HTTPError(400, 'No clump with that ID')
             request_new_active(clump['_id'])
-        return bottle.HTTPResponse(code=204)
+        return bottle.HTTPResponse(status=204)
         
     elif method == 'DELETE':
         request_clear_active()
-        return bottle.HTTPResponse(code=204)
+        return bottle.HTTPResponse(status=204)
         
         
 ################################################################################
