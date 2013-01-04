@@ -98,7 +98,7 @@ def handle_all_clumps(db):
         new_clump = db.clumps.insert(updated_data)
         return bottle.HTTPResponse(str(new_clump), 201)
 
-@app.route('/clumps/<ID>', method=('GET', 'PUT', 'DELETE'))
+@app.route('/clumps/<ID>', method=('GET', 'PUT', 'PATCH', 'DELETE'))
 def handle_clump(db, ID):
     method = bottle.request.method
     ID = ObjectId(ID)
@@ -113,10 +113,10 @@ def handle_clump(db, ID):
         result = db.clumps.find_and_modify({'_id': ID}, remove=True)
         if result is None:
             raise bottle.HTTPError(404)
-        request_clear_active(ID)
+        request_previous_active()
         return bottle.HTTPResponse(status=204)
     
-    elif method == 'PUT':
+    elif method == 'PATCH':
         data = bottle.request.json
         check_data(data)
         
@@ -124,8 +124,18 @@ def handle_clump(db, ID):
         if result is None:
             raise bottle.HTTPError(404)
         request_update_active(ID)
-        result['_id'] = str(result['_id'])
-        return result
+        return bottle.HTTPResponse(status=204)
+    
+    elif method == 'PUT':
+        data = bottle.request.json
+        check_data(data)
+        
+        updated_data = dict(true_defaults)
+        updated_data.update(data)
+        updated_data['_id'] = ID
+        
+        result = db.clumps.save(updated_data)
+        return bottle.HTTPResponse(status=204)
         
 @app.route('/clumps/<ID>/fields/')
 def get_field_list(db, ID):
@@ -161,13 +171,11 @@ def handle_field(db, ID, fieldname):
         data = bottle.request.json
         check_field(data)
         
-        result = db.clumps.find_and_modify({'_id': ID, 'fields.%s' % fieldname: {'$exists': True}},
-                                           {'$set': {'fields.%s' % fieldname: data}}, new=True)
+        result = db.clumps.find_and_modify({'_id': ID}, {'$set': {'fields.%s' % fieldname: data}})
         if result is None:
             raise bottle.HTTPError(404)
         request_update_active(ID)
         return bottle.HTTPResponse(status=204)
-    
 
 ################################################################################
 # Methods pertaining to interacting with the sign
@@ -179,13 +187,24 @@ def send_request(command, clump_id):
     send_message.send({'command': command, 'id': clump_id})
     
 def request_new_active(clump_id):
+    '''Sets the active to the ID
+    '''
     send_request('SET', clump_id)
     
 def request_update_active(clump_id):
+    '''Update the id.
+    '''
     send_request('UPDATE', clump_id)
     
-def request_clear_active(clump_id=None):
-    send_request('CLEAR', clump_id)
+def request_previous_active():
+    '''Moves the active to the previous active.
+    '''
+    send_request('PREVIOUS', None)
+    
+def request_clear_active():
+    '''Wipe the sign
+    '''
+    send_request('CLEAR', None)
                 
 def make_objects(clump, names=None):
     '''Given a clump, generate the objects to be written to the sign.
@@ -235,7 +254,7 @@ def make_objects(clump, names=None):
             text = general.parse_colors(text)
             yield alphasign.String(text, label=label)
     
-@app.route('/active-clump', method=('GET', 'PUT'))
+@app.route('/active-clump', method=('GET', 'PUT', 'DELETE'))
 def handle_active(db):
     method = bottle.request.method
     
@@ -252,10 +271,19 @@ def handle_active(db):
         
         if 'ID' not in data:
             raise bottle.HTTPError(400, 'Need ID to show')
-        clump = db.clumps.find_one(ObjectId(data['ID']))
-        if clump is None:
-            raise bottle.HTTPError(400, 'No clump with that ID')
-        request_new_active(clump['_id'])
+        if data['ID'] == 'previous':
+            request_previous_active()
+        else:
+            clump = db.clumps.find_one(ObjectId(data['ID']))
+            if clump is None:
+                raise bottle.HTTPError(400, 'No clump with that ID')
+            request_new_active(clump['_id'])
+        return bottle.HTTPResponse(code=204)
+        
+    elif method == 'DELETE':
+        request_clear_active()
+        return bottle.HTTPResponse(code=204)
+        
         
 ################################################################################
 # SignInteractor- a separate process for actually interacting with the sign
@@ -286,12 +314,12 @@ class SignInteractor(multiprocessing.Process):
                     if currently_active is not None:
                         self.set_active(clump_id)
                         
+                elif message['command'] == 'PREVIOUS':
+                    self.set_previous_active()
+                
                 elif message['command'] == 'CLEAR':
-                    query = {'clump_id': clump_id} if clump_id is not None else {}
-                    currently_active = self.db.active.find_one(query)
-                    if currently_active is not None:
-                        self.set_previous_active()
-                        
+                    self.clear_active()
+                    
         except EOFError:
             pass
         finally:
@@ -307,20 +335,27 @@ class SignInteractor(multiprocessing.Process):
         if clump is None:
             self.set_previous_active()
         else:
-            self.db.active.insert({'clump_id': clump_id})
             self.write_to_sign(clump)
+            self.db.active.insert({'clump_id': clump_id})
+            
+    def clear_active(self):
+        empty_clump = {'name': '', 'text': '', 'mode': 'HOLD', 'fields': {}}
+        self.write_to_sign(empty_clump)
+        self.db.active.insert({'clump_id': None})
             
     def set_previous_active(self):
         '''Finds the last most recently displayed clump and displays it.
         '''
-        previous = self.db.clumps.find().sort('last_displayed', -1).limit(1)
+        current = self.db.active.find_one()
+        if current is not None:
+            current = current['clump_id']
+            self.db.clumps.update({'_id': current}, {'$unset': {'last_displayed': ''}})
+        previous = self.db.clumps.find({'$exists': {'last_displayed': True}}).sort('last_displayed', -1).limit(1)
         if previous.count(True) > 0: #count(True) counts WITH limit(1)
             previous = previous[0]
             self.set_active(previous['_id'])
         else:
-            self.db.active.insert({'clump_id': None})
-            empty_clump = {'name': '', 'text': '', 'mode': 'HOLD', 'fields': {}}
-            self.write_to_sign(empty_clump)
+            self.clear_active()
         
     def write_to_sign(self, clump):
         objects = list(make_objects(clump))
