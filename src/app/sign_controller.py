@@ -347,7 +347,7 @@ class SignInteractor(multiprocessing.Process):
         if current is not None:
             current = current['clump_id']
             self.db.clumps.update({'_id': current}, {'$unset': {'last_displayed': ''}})
-        previous = self.db.clumps.find({'$exists': {'last_displayed': True}}).sort('last_displayed', -1).limit(1)
+        previous = self.db.clumps.find({'last_displayed': {'$exists': True}}).sort('last_displayed', -1).limit(1)
         if previous.count(True) > 0: #count(True) counts WITH limit(1)
             previous = previous[0]
             self.set_active(previous['_id'])
