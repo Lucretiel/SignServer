@@ -235,7 +235,7 @@ def make_objects(clump, names=None):
                          mode=constants.get_mode(clump['mode']))
     
     if names is not None:
-        label_map = {name: val for name, val in label_map if name in names}
+        label_map = {name: val for name, val in label_map.iteritems() if name in names}
         
     #Run through each named subfield
     for fieldname, (label, fieldtype) in label_map:
