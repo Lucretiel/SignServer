@@ -63,7 +63,7 @@ def _check(data, schema):
     try:
         jsonschema.validate(data, schema)
     except jsonschema.ValidationError as e:
-        raise bottle.HTTPError(400, e.message, e, sys.exc_traceback)
+        raise bottle.HTTPError(400, e.message)
 
 def check_data(data):
     _check(data, clump_schema)
