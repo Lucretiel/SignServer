@@ -212,11 +212,11 @@ def make_objects(clump, names=None):
     labels = iter(constants.sign_controller_labels)
     text_label = next(labels)
     fields = clump['fields']
+    text = clump['text']
     
     label_map = {name: (next(labels), 'STRING' if 'text' in field else 'DOTS')
                  for name, field in sorted(fields.iteritems())}
     
-    text = clump['text']
     #parse colors
     text = general.parse_colors(text)
     
@@ -238,7 +238,7 @@ def make_objects(clump, names=None):
         label_map = {name: val for name, val in label_map.iteritems() if name in names}
         
     #Run through each named subfield
-    for fieldname, (label, fieldtype) in label_map:
+    for fieldname, (label, fieldtype) in label_map.iteritems():
         field = fields[fieldname]
         
         if fieldtype == 'DOTS':
