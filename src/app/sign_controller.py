@@ -304,6 +304,8 @@ class SignInteractor(multiprocessing.Process):
         now, set it to active, and display it. If it doesn't exist, try the last
         most recently displayed clump.
         '''
+        
+        print "Setting active to %s" % clump_id
         clump = self.db.clumps.find_and_modify({'_id': clump_id},
                                                {'$set': {'last_displayed': datetime.now()}})
         if clump is None:
@@ -315,16 +317,19 @@ class SignInteractor(multiprocessing.Process):
     def set_previous_active(self):
         '''Finds the last most recently displayed clump and displays it.
         '''
+        print "Setting active to previous"
         previous = self.db.clumps.find().sort('last_displayed', -1).limit(1)
         if previous.count(True) > 0: #count(True) counts WITH limit(1)
             previous = previous[0]
             self.set_active(previous['_id'])
         else:
+            print "Clearing Sign"
             self.db.active.insert({'clump_id': None})
             empty_clump = {'name': '', 'text': '', 'mode': 'HOLD', 'fields': {}}
             self.write_to_sign(empty_clump)
         
     def write_to_sign(self, clump):
+        print "Writing to sign"
         objects = list(make_objects(clump))
         sign.allocate(objects)
         for obj in objects: sign.write(obj)
