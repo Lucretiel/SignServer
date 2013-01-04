@@ -305,13 +305,10 @@ class SignInteractor(multiprocessing.Process):
                 message = self.queue.recv()
                 clump_id = message['id']
                 if message['command'] == 'SET':
-                    currently_active = self.db.active.find_one({'clump_id': clump_id})
-                    if currently_active is None:
-                        self.set_active(clump_id)
+                    self.set_active(clump_id)
                 
                 elif message['command'] == 'UPDATE':
-                    currently_active = self.db.active.find_one({'clump_id': clump_id})
-                    if currently_active is not None:
+                    if self.db.active.find_one({'clump_id': clump_id}):
                         self.set_active(clump_id)
                         
                 elif message['command'] == 'PREVIOUS':
