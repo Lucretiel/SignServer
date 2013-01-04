@@ -104,7 +104,7 @@ def handle_clump(db, ID):
     ID = ObjectId(ID)
     
     if method == 'GET':
-        result = db.clumps.find_one(ID, {'_id': False})
+        result = db.clumps.find_one(ID, {'_id': False, 'last_displayed': False})
         if result is None:
             raise bottle.HTTPError(404)
         return result
