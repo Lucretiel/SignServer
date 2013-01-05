@@ -113,7 +113,7 @@ def handle_clump(db, ID):
         result = db.clumps.find_and_modify({'_id': ID}, remove=True)
         if result is None:
             raise bottle.HTTPError(404)
-        request_previous_active()
+        request_previous_active(ID)
         return bottle.HTTPResponse(status=204)
     
     elif method == 'PATCH':
@@ -196,10 +196,11 @@ def request_update_active(clump_id):
     '''
     send_request('UPDATE', clump_id)
     
-def request_previous_active():
-    '''Moves the active to the previous active.
+def request_previous_active(clump_id = None):
+    '''Moves the active to the previous active. If clump_id is given, only move
+    it if it is currently actuve
     '''
-    send_request('PREVIOUS', None)
+    send_request('PREVIOUS', clump_id)
     
 def request_clear_active():
     '''Wipe the sign
@@ -312,7 +313,8 @@ class SignInteractor(multiprocessing.Process):
                         self.set_active(clump_id)
                         
                 elif message['command'] == 'PREVIOUS':
-                    self.set_previous_active()
+                    if clump_id is None or self.db.active.find_one({'clump_id': clump_id}):
+                        self.set_previous_active()
                 
                 elif message['command'] == 'CLEAR':
                     self.clear_active()
