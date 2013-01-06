@@ -38,3 +38,7 @@ app.mount('/sign-controller', sign_controller.app)
 @app.route('/favicon.ico')
 def get_icon():
     return bottle.static_file('favicon.ico', '.')
+
+def start(**kwargs):
+    sign_controller.sign_interactor.start()
+    bottle.run(app, **kwargs)
