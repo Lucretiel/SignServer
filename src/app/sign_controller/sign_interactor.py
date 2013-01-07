@@ -91,7 +91,7 @@ class SignInteractor(multiprocessing.Process):
         super(SignInteractor, self).__init__()
         self.daemon = True
         self.queue = queue #This is actually a Pipe endpoint. Consider renaming.
-        self.db = mongo_plugin.get_mongo()
+        self.db = mongo.get_mongo()
         
     def run(self):
         try:
