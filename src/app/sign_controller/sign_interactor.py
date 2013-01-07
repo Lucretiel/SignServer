@@ -8,7 +8,7 @@ import multiprocessing
 import alphasign
 import constants
 from .. import general
-from . import mongo_plugin
+from . import mongo
 from sign import sign
 from datetime import datetime
 
