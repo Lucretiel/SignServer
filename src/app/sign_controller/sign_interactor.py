@@ -117,6 +117,9 @@ class SignInteractor(multiprocessing.Process):
         finally:
             self.queue.close()
             
+    def delete_if_temporary(self, clump_id):
+        self.db.clumps.find_and_modify({'_id': clump_id, 'temporary': True}, remove=True)
+            
     def set_active(self, clump_id):
         '''Locate the clump with the given id and set it's last displayed to
         now, set it to active, and display it. If it doesn't exist, try the last
@@ -128,20 +131,24 @@ class SignInteractor(multiprocessing.Process):
             self.set_previous_active()
         else:
             self.write_to_sign(clump)
+            old = self.db.active.find_one()['clump_id']
             self.db.active.insert({'clump_id': clump_id})
+            if old != clump_id:
+                self.delete_if_temporary(old)
             
     def clear_active(self):
         empty_clump = {'name': '', 'text': '', 'mode': 'HOLD', 'fields': {}}
         self.write_to_sign(empty_clump)
+        old = self.db.active.find_one()['clump_id']
+        self.delete_if_temporary(old)
         self.db.active.insert({'clump_id': None})
             
     def set_previous_active(self):
         '''Finds the last most recently displayed clump and displays it.
         '''
-        current = self.db.active.find_one()
-        if current is not None:
-            current = current['clump_id']
-            self.db.clumps.update({'_id': current}, {'$unset': {'last_displayed': ''}})
+        current = self.db.active.find_one()['clump_id']
+        self.db.clumps.update({'_id': current}, {'$unset': {'last_displayed': ''}})
+                
         previous = self.db.clumps.find({'last_displayed': {'$exists': True}}).sort('last_displayed', -1).limit(1)
         if previous.count(True) > 0: #count(True) counts WITH limit(1)
             previous = previous[0]

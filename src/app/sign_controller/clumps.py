@@ -15,7 +15,8 @@ app = bottle.Bottle()
 defaults = {'name': '',
             'text': '',
             'mode': 'ROTATE',
-            'fields': {}}
+            'fields': {},
+            'temporary': False}
 
 field_schema = {'type': [{'type': 'object',
                              'properties':
@@ -35,6 +36,7 @@ clump_schema = {'type': 'object',
                     {'name': {'type': 'string'},
                      'text': {'type': 'string'},
                      'mode': {'type': 'string'},
+                     'temporary': {'type': 'boolean'},
                      'fields': {'type': 'object',
                                 'patternProperties':
                                     {'[a-zA-Z0-9]+': field_schema}}}}
