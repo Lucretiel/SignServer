@@ -9,10 +9,10 @@ from bson import ObjectId
 import sign_interactor
 from . import mongo
 
-app = bottle.Bottle()
-app.install(mongo)
+#app = bottle.Bottle()
+#app.install(mongo)
 
-@app.route('', ('GET', 'PUT', 'DELETE'))
+#@app.route('', ('GET', 'PUT', 'DELETE'))
 def handle_active(db):
     method = bottle.request.method
     

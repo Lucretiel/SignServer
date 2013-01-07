@@ -14,5 +14,6 @@ mongo = bottle_mongo.MongoPlugin('localhost:27017', 'signcontroller', 'db')
 import clumps
 import active_clump
 
-app.mount('/clumps', clumps.app, skip=None)
-app.mount('/active-clump', active_clump.app, skip=None)
+app.mount('/clumps', clumps.app)
+#app.mount('/active-clump', active_clump.app)
+app.route('/active-clump', ('GET', 'PUT', 'DELETE'), active_clump.handle_active, apply=mongo)
