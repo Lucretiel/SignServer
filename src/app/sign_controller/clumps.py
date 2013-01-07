@@ -9,8 +9,10 @@ import jsonschema
 from bson import ObjectId
 
 import sign_interactor
+from . import mongo
 
 app = bottle.Bottle()
+app.install(mongo)
 
 defaults = {'name': '',
             'text': '',
