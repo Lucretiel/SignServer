@@ -33,7 +33,6 @@ app = bottle.Bottle()
 
 app.mount('/sign-direct', sign_direct.app)
 app.mount('/dead-simple', dead_simple.app)
-app.mount('/sign-controller', sign_controller.app)
 
 @app.route('/favicon.ico')
 def get_icon():
