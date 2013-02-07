@@ -97,8 +97,8 @@ def send():
 def check_ready():
     raw_table = read_raw_memory_table()
     
-    bad = {'result': 'Sign is NOT ready for dead-simple.', 'recommendation':'hit <(URL)/dead-simple/reset> first.'}
-    good = {'result': 'Sign IS ready for dead-simple!', 'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started'}
+    bad = {'result': 'Sign is NOT ready for dead-simple.', 'recommendation':'hit <(URL)/dead-simple/reset> first.', 'ready': False}
+    good = {'result': 'Sign IS ready for dead-simple!', 'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started', 'ready': True}
     
     text = sign.find_entry(raw_table, 'A')
     if text is None or text['type'] != 'TEXT':
