@@ -40,74 +40,76 @@ def parse_labels(text):
         if match.lower() in constants.dead_simple_string_labels:
             return alphasign.String(label=match.lower()).call()
         return None
-    
+
     return general.parse_generic(text, replacer)
 
 @app.route('/reset')
 def reset():
     params = bottle.request.query
-    
+
     text_length = params.get('textsize', 128, type=int)
     string_length = params.get('stringsize', 128, type=int)
-    
+
     text = alphasign.Text('%sREADY FOR DEAD-SIMPLE. TRY HITTING %s/dead-simple/send?text=%s<text>' % (alphasign.colors.RED, alphasign.colors.YELLOW, alphasign.colors.GREEN), label='A', size=text_length, mode=alphasign.modes.COMPRESSED_ROTATE)
-    strings = (alphasign.String(label=label, size=string_length) for label in constants.dead_simple_string_labels)
-    
+    strings = [alphasign.String(label=label, size=string_length) for label in constants.dead_simple_string_labels]
+
     sign.allocate(chain([text], strings))
     sign.set_run_sequence([text])
     sign.write(text)
+    for string in strings:
+        sign.write(string)
     read_raw_memory_table.clear_cache()
-    
+
     return {'result': 'Successfully reset sign for dead-simple API'}
 
 @app.route('/send')
 def send():
     params = bottle.request.query
-    
+
     if 'label' in params:
         label = params.label.lower()
     else:
         label = 'A'
-    
+
     if 'text' not in params:
         raise HTTPError(400, 'Need text to send!')
-    
+
     text = params.text
     color = constants.get_color(params.get('color', 'NONE'))
     mode = constants.get_mode(params.get('mode', 'ROTATE'))
-    
+
     text = color + text
     text = general.parse_colors(text)
-    
+
     if label == 'A':
         text = parse_labels(text)
-        
+
     memory_entry = sign.find_entry(read_raw_memory_table(), label)
     if len(text) > memory_entry['size']:
         raise HTTPError(400, 'Not enough space allocated. Need at least %s bytes.' % len(text))
-    
+
     if label == 'A':
         sign.write(alphasign.Text(text, label=label, mode=mode))
     else:
         sign.write(alphasign.String(text, label=label))
-    
+
     return {'result': 'Sucessfully sent text'}
 
 @app.route('/isready')
 def check_ready():
     raw_table = read_raw_memory_table()
-    
+
     bad = {'result': 'Sign is NOT ready for dead-simple.', 'recommendation':'hit <(URL)/dead-simple/reset> first.', 'ready': False}
     good = {'result': 'Sign IS ready for dead-simple!', 'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started', 'ready': True}
-    
+
     text = sign.find_entry(raw_table, 'A')
     if text is None or text['type'] != 'TEXT':
         return bad
-    
+
     for label in constants.dead_simple_string_labels:
         string = sign.find_entry(raw_table, label)
         if string is None or string['type'] != 'STRING':
             return bad
-        
+
     return good
-    
+
