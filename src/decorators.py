@@ -22,6 +22,7 @@ along with SignServer.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from time import time
+from functools import wraps
 
 class cached(object):
     '''Decorator to make functions cache their value. Converts function into
@@ -33,7 +34,6 @@ class cached(object):
         self.value = None
         self.value_time = 0
         self.timeout = 0
-        
     def __call__(self, *args, **kwargs):
         if self.value is None or (self.timeout != -1 and time() - self.value_time > self.timeout):
             self.value = self.func(*args)
@@ -45,16 +45,13 @@ class cached(object):
 def retrying(default):
     '''Decorator to make functions retry a certain number of times before
     returning a value. returning None is considered a failure. The decorated
-    function will use the retries kwarg to know how many times to retry, and
-    default to default
+    function will use the retries kwarg to know how many times to retry,
+    defaulting to default
     '''
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            if 'retries' in kwargs:
-                retries = kwargs['retries']
-                del kwargs['retries']
-            else:
-                retries = default
+            retries = kwargs.pop('retries', default)
             result = None
             if retries == 0:
                 while result is None:

@@ -24,9 +24,7 @@ along with SignServer.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import re
-import sys
 
-from bottle import HTTPError
 import bottle
 
 import alphasign
@@ -36,17 +34,17 @@ import constants
 
 def validate_label(label, type_name=None, raw_table=None):
     if label not in constants.valid_labels:
-        raise HTTPError(400, 'label %s is invalid' % label)
+        raise bottle.HTTPError(400, 'label %s is invalid' % label)
     if label in constants.counter_labels:
-        raise HTTPError(400, 'label cannot be a counter (1-5)')
+        raise bottle.HTTPError(400, 'label cannot be a counter (1-5)')
     if type_name is not None:
         if raw_table is None:
             raw_table = read_raw_memory_table()
         memory_entry = sign.find_entry(raw_table, label)
         if memory_entry is None:
-            raise HTTPError(400, 'label %s not in memory table' % label)
+            raise bottle.HTTPError(400, 'label %s not in memory table' % label)
         if memory_entry['type'] == type_name:
-            raise HTTPError(400, 'label %s is of type %s, not %s' % (label, type_name, memory_entry['type']))
+            raise bottle.HTTPError(400, 'label %s is of type %s, not %s' % (label, type_name, memory_entry['type']))
 
 def parse_generic(text, replacer):
     '''This function scans the text for all flags of the form {stuff}, and
@@ -102,10 +100,10 @@ def inject_json(func):
         try:
             request = bottle.request.json
             if request is None:
-                raise HTTPError(400, 'Data must be json')
+                raise bottle.HTTPError(400, 'Data must be json')
             return func(request, *args, **kwargs)
         except ValueError as e:
-            raise HTTPError(400, 'Error parsing json\n%s' % e.message), None, sys.exc_traceback
+            raise bottle.HTTPError(400, 'Error parsing json\n%s' % e.message)
         except KeyError as e:
-            raise HTTPError(400, 'Missing field in json: %s' % e.message), None, sys.exc_traceback
+            raise bottle.HTTPError(400, 'Missing field in json: %s' % e.message)
     return wrapper
