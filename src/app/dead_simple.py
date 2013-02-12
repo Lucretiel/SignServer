@@ -50,8 +50,15 @@ def reset():
     text_length = params.get('textsize', 128, type=int)
     string_length = params.get('stringsize', 128, type=int)
 
-    text = alphasign.Text('%sREADY FOR DEAD-SIMPLE. TRY HITTING %s/dead-simple/send?text=%s<text>' % (alphasign.colors.RED, alphasign.colors.YELLOW, alphasign.colors.GREEN), label='A', size=text_length, mode=alphasign.modes.COMPRESSED_ROTATE)
-    strings = [alphasign.String(label=label, size=string_length) for label in constants.dead_simple_string_labels]
+    text = alphasign.Text(
+        '%sREADY FOR DEAD-SIMPLE. TRY HITTING %s/dead-simple/send?text=%s<text>' %
+            (alphasign.colors.RED,
+            alphasign.colors.YELLOW,
+            alphasign.colors.GREEN),
+        label='A', size=text_length, mode=alphasign.modes.COMPRESSED_ROTATE)
+
+    strings = [alphasign.String(label=label, size=string_length)
+        for label in constants.dead_simple_string_labels]
 
     sign.allocate(chain([text], strings))
     sign.set_run_sequence([text])
@@ -66,13 +73,13 @@ def reset():
 def send():
     params = bottle.request.query
 
+    if 'text' not in params:
+        raise HTTPError(400, 'Need text to send!')
+
     if 'label' in params:
         label = params.label.lower()
     else:
         label = 'A'
-
-    if 'text' not in params:
-        raise HTTPError(400, 'Need text to send!')
 
     text = params.text
     color = constants.get_color(params.get('color', 'NONE'))
@@ -85,8 +92,8 @@ def send():
         text = parse_labels(text)
 
     memory_entry = sign.find_entry(read_raw_memory_table(), label)
-    if len(text) > memory_entry['size']:
-        raise HTTPError(400, 'Not enough space allocated. Need at least %s bytes.' % len(text))
+    if len(text) >= memory_entry['size']:
+        raise HTTPError(400, 'Not enough space allocated. Need at least %s bytes.' % (len(text) + 1))
 
     if label == 'A':
         sign.write(alphasign.Text(text, label=label, mode=mode))
@@ -99,8 +106,13 @@ def send():
 def check_ready():
     raw_table = read_raw_memory_table()
 
-    bad = {'result': 'Sign is NOT ready for dead-simple.', 'recommendation':'hit <(URL)/dead-simple/reset> first.', 'ready': False}
-    good = {'result': 'Sign IS ready for dead-simple!', 'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started', 'ready': True}
+    bad = {'result': 'Sign is NOT ready for dead-simple.',
+           'recommendation':'hit <(URL)/dead-simple/reset> first.',
+           'ready': False}
+
+    good = {'result': 'Sign IS ready for dead-simple!',
+            'recommendation': 'hit <(URL)/dead-simple/send?text=<text>> to get started',
+            'ready': True}
 
     text = sign.find_entry(raw_table, 'A')
     if text is None or text['type'] != 'TEXT':
