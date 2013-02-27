@@ -47,8 +47,8 @@ def parse_labels(text):
 def reset():
     params = bottle.request.query
 
-    text_length = params.get('textsize', 128, type=int)
-    string_length = params.get('stringsize', 128, type=int)
+    text_length = params.get('textsize', 256, type=int)
+    string_length = params.get('stringsize', 256, type=int)
 
     text = alphasign.Text(
         '%sREADY FOR DEAD-SIMPLE. TRY HITTING %s/dead-simple/send?text=%s<text>' %
