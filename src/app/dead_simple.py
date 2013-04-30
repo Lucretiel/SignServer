@@ -83,7 +83,7 @@ def send():
 
     text = params.text
     color = constants.get_color(params.get('color', 'NONE'))
-    mode = constants.get_mode(params.get('mode', 'ROTATE'))
+    mode = constants.get_mode(params.get('mode', 'COMPRESSED_ROTATE'))
 
     text = color + text
     text = general.parse_colors(text)
