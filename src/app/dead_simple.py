@@ -129,7 +129,7 @@ def check_ready():
 def beep():
     params = bottle.request.params
     keys = ('frequency', 'duration', 'repeat')
-    params = {key.lower(), value for key, value in params.iteritems()
+    params = {key.lower(): value for key, value in params.iteritems()
         if key.lower in keys}
     sign.beep(**params)
 
