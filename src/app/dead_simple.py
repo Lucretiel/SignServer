@@ -125,3 +125,11 @@ def check_ready():
 
     return good
 
+@app.route('/beep')
+def beep():
+    params = bottle.request.params
+    keys = ('frequency', 'duration', 'repeat')
+    params = {key.lower(), value for key, value in params.iteritems()
+        if key.lower in keys}
+    sign.beep(**params)
+
