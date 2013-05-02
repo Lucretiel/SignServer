@@ -133,3 +133,5 @@ def beep():
         if key.lower in keys}
     sign.beep(**params)
 
+    return {'result': 'beep'}
+
